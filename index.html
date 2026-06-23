@@ -118,10 +118,23 @@
     <button class="iconbtn" id="settingsBtn" title="Configurações">⚙️</button>
   </header>
 
-  <div class="monthnav">
+
+<div class="monthnav">
     <button id="prevM">‹</button>
     <div class="label" id="monthLabel">—</div>
     <button id="nextM">›</button>
+  </div>
+
+<div id="monthContent" style="width: 100%; overflow-x: hidden;">
+
+    <div class="summary">
+      <div class="row"><span class="lbl">Entradas</span><span class="green" id="sumIn">R$ 0,00</span></div>
+      <div class="row"><span class="lbl">Saídas</span><span class="red" id="sumOut">R$ 0,00</span></div>
+      <div class="row"><span class="lbl">Saldo</span><span id="sumBal">R$ 0,00</span></div>
+    </div>
+
+    <div class="list" id="list"></div>
+
   </div>
 
   <div class="summary">
@@ -259,6 +272,93 @@ let editing = null;   // tx sendo editado (ou null = novo)
 let pendingScope = null; // {kind:'edit'|'delete', data}
 
 // ---------- Utilidades ----------
+// --- Animação dos Números (Contador) ---
+function animateMoney(el, endValue) {
+  const duration = 600; // 600 milissegundos
+  const start = performance.now();
+  
+  function update(currentTime) {
+    const elapsed = currentTime - start;
+    const progress = Math.min(elapsed / duration, 1);
+    const ease = 1 - Math.pow(1 - progress, 3); // Deixa mais suave no final
+    const current = 0 + (endValue - 0) * ease; // Conta do zero até o valor
+    
+    el.textContent = money(current);
+    
+    if (progress < 1) requestAnimationFrame(update);
+    else el.textContent = money(endValue);
+  }
+  requestAnimationFrame(update);
+}
+
+// --- Animação de Troca de Mês via Botões ---
+let isAnimatingMonth = false;
+function changeMonthAnimated(direction) {
+  if(isAnimatingMonth) return;
+  isAnimatingMonth = true;
+  
+  const content = document.getElementById("monthContent");
+  content.style.transition = 'transform 0.25s ease-out, opacity 0.25s ease-out';
+  content.style.transform = `translateX(${direction > 0 ? '-100vw' : '100vw'})`;
+  content.style.opacity = '0';
+  
+  setTimeout(() => {
+    currentMonth += direction;
+    render();
+    content.style.transition = 'none';
+    content.style.transform = `translateX(${direction > 0 ? '100vw' : '-100vw'})`;
+    content.offsetHeight; // Força a tela a recalcular a posição
+    content.style.transition = 'transform 0.25s ease-out, opacity 0.25s ease-out';
+    content.style.transform = 'translateX(0)';
+    content.style.opacity = '1';
+    
+    setTimeout(() => { isAnimatingMonth = false; }, 250);
+  }, 250);
+}
+
+// --- Animação de Arrastar com o Dedo (Swipe) ---
+function initSwipeGesture() {
+  const content = document.getElementById("monthContent");
+  let startX = 0, startY = 0, isSwiping = false;
+
+  content.addEventListener('touchstart', e => {
+    if(isAnimatingMonth || document.querySelector('.overlay.show')) return;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    isSwiping = false;
+    content.style.transition = 'none'; // Cola o elemento no dedo
+  }, {passive: true});
+
+  content.addEventListener('touchmove', e => {
+    if(isAnimatingMonth || document.querySelector('.overlay.show')) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+
+    // Detecta se é um movimento horizontal e não rolagem de lista
+    if (!isSwiping && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) {
+      isSwiping = true;
+    }
+
+    if (isSwiping) {
+      if (e.cancelable) e.preventDefault(); // Impede a tela de rolar para baixo
+      content.style.transform = `translateX(${dx}px)`;
+    }
+  }, {passive: false});
+
+  content.addEventListener('touchend', e => {
+    if (!isSwiping) return;
+    isSwiping = false;
+    const dx = e.changedTouches[0].clientX - startX;
+    
+    // Se arrastou o suficiente, troca de mês. Se não, volta pro lugar.
+    if (dx > 80) changeMonthAnimated(-1);
+    else if (dx < -80) changeMonthAnimated(1);
+    else {
+      content.style.transition = 'transform 0.25s ease-out';
+      content.style.transform = `translateX(0)`;
+    }
+  });
+}
 function nowMonthIndex(){ const d=new Date(); return d.getFullYear()*12 + d.getMonth(); }
 function ymOf(mi){ return { year: Math.floor(mi/12), month: (mi%12)+1 }; } // month 1..12
 function monthLabel(mi){ const {year,month}=ymOf(mi); return MONTHS[month-1]+" de "+year; }
@@ -383,10 +483,10 @@ function render(){
     if(t.type==="INCOME") income+=t.amount;
     else if(!(paidExcluded && t.settled)) expense+=t.amount;
   }
-  document.getElementById("sumIn").textContent=money(income);
-  document.getElementById("sumOut").textContent=money(expense);
-  const bal=document.getElementById("sumBal");
-  bal.textContent=money(income-expense);
+  animateMoney(document.getElementById("sumIn"), income);
+  animateMoney(document.getElementById("sumOut"), expense);
+  const bal = document.getElementById("sumBal");
+  animateMoney(bal, income-expense);
   bal.className=(income-expense)>=0?"green":"red";
 
   const list=document.getElementById("list");
@@ -544,8 +644,8 @@ function hideOverlay(id){ document.getElementById(id).classList.remove("show"); 
 
 // ---------- Eventos ----------
 function bind(){
-  document.getElementById("prevM").onclick=()=>{ currentMonth--; render(); };
-  document.getElementById("nextM").onclick=()=>{ currentMonth++; render(); };
+  document.getElementById("prevM").onclick=()=>{ changeMonthAnimated(-1); };
+  document.getElementById("nextM").onclick=()=>{ changeMonthAnimated(1); };
   document.getElementById("fab").onclick=()=>openEditor(null);
   document.getElementById("paidBtn").onclick=()=>{
     const i=state.paidExcludedMonths.indexOf(currentMonth);
@@ -623,7 +723,7 @@ document.getElementById("bInstall").onclick=()=>{
 if(isiOS && !isStandalone){ showInstall("ios"); }
 
 // ---------- Início ----------
-load(); bind(); render();
+load(); bind(); render(); initSwipeGesture();
 if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
 </script>
 </body>
