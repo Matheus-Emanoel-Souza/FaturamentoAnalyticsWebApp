@@ -100,6 +100,23 @@
   .hint{ font-size:12px; color:var(--muted); margin-top:4px; }
   .seclabel{ font-size:13px; color:var(--accent); font-weight:700; margin:18px 0 4px; }
 
+  /* Categorias e flags */
+  .flags{ font-size:11px; letter-spacing:1px; margin-left:5px; }
+  .flagpick{ display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
+  .flagpick .chip{ font-size:13px; padding:7px 12px; }
+  .manage{ display:grid; gap:6px; margin-top:4px; }
+  .mrow{ display:flex; align-items:center; gap:10px; background:var(--surface2); border-radius:10px; padding:8px 10px; }
+  body.amoled .mrow{ background:#0d0d0d; border:1px solid var(--divider); }
+  .mrow .micon{ font-size:18px; width:24px; text-align:center; }
+  .mrow .mname{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mrow button{ background:none; border:none; color:var(--muted); font-size:15px; padding:5px 7px; cursor:pointer; }
+  .addbtn{ width:100%; padding:11px; border-radius:10px; border:1px dashed var(--divider);
+    background:none; color:var(--accent); font-weight:600; font-size:14px; cursor:pointer; margin-top:8px; }
+  .infolist{ display:grid; gap:7px; font-size:14px; margin-bottom:4px; }
+  .infolist .row{ display:flex; justify-content:space-between; gap:14px; }
+  .infolist .k{ color:var(--muted); }
+  .infolist .v{ text-align:right; }
+
   .install{ position:fixed; left:12px; right:12px; bottom:calc(90px + env(safe-area-inset-bottom));
     max-width:536px; margin:0 auto; background:var(--surface2); border:1px solid var(--divider);
     border-radius:14px; padding:12px 14px; display:none; align-items:center; gap:10px; z-index:9;
@@ -162,6 +179,10 @@
       <button data-v="EXPENSE" class="sel">Saída</button>
       <button data-v="INCOME">Entrada</button>
     </div>
+    <label>Categoria</label>
+    <select id="fCategory"></select>
+    <label>Flags</label>
+    <div class="flagpick" id="fFlags"></div>
     <div id="recWrap">
       <label>Recorrência</label>
       <div class="seg" id="fRec">
@@ -219,13 +240,27 @@
     </div>
     <div class="row-between"><span>Ordem crescente</span><div class="switch" id="sSortAsc"><div class="knob"></div></div></div>
 
+    <div class="seclabel">Categorias</div>
+    <div class="manage" id="sCategories"></div>
+    <button class="addbtn" id="catAdd">+ Nova categoria</button>
+
+    <div class="seclabel">Flags</div>
+    <div class="manage" id="sFlags"></div>
+    <button class="addbtn" id="flagAdd">+ Nova flag</button>
+
     <div class="seclabel">Backup</div>
     <div class="actions">
-      <button class="btn-ghost" id="bExport">Exportar / Compartilhar</button>
+      <button class="btn-ghost" id="bExport">Backup completo</button>
       <button class="btn-ghost" id="bImport">Importar</button>
     </div>
-    <input type="file" id="importFile" accept="application/json" style="display:none" />
-    <div class="hint">Backup das transações (formato JSON), compatível com o app Android.</div>
+    <input type="file" id="importFile" accept="application/json,.json" style="display:none" />
+    <div class="hint">Backup completo em JSON (versão 4): transações, categorias, flags e preferências. Também importa backups antigos (versão 3) do app Android.</div>
+
+    <div class="seclabel">Exportar dados</div>
+    <div class="actions">
+      <button class="btn-ghost" id="bExportCsv">Exportar CSV</button>
+    </div>
+    <div class="hint">Planilha CSV (separador “;”) para abrir no Excel / LibreOffice.</div>
 
     <div class="seclabel">App</div>
     <div class="actions">
@@ -234,6 +269,35 @@
 
     <div class="actions" style="margin-top:22px">
       <button class="btn-primary" id="settingsClose">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: criar/editar categoria ou flag -->
+<div class="overlay" id="itemOverlay">
+  <div class="sheet">
+    <h3 id="itemTitle">Nova categoria</h3>
+    <label>Ícone</label>
+    <input type="text" id="iIcon" maxlength="4" placeholder="🍔" autocomplete="off" />
+    <label>Nome</label>
+    <input type="text" id="iName" autocomplete="off" />
+    <div class="actions">
+      <button class="btn-ghost" id="itemCancel">Cancelar</button>
+      <button class="btn-primary" id="itemSave">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: pré-visualização da importação -->
+<div class="overlay" id="importOverlay">
+  <div class="sheet">
+    <h3>Importar backup</h3>
+    <div class="infolist" id="importInfo"></div>
+    <div class="hint">Nada é alterado até você escolher uma opção abaixo.</div>
+    <div class="actions" style="flex-direction:column">
+      <button class="btn-primary" id="impMerge">Mesclar (não apaga nada)</button>
+      <button class="btn-ghost" id="impReplace">Substituir tudo</button>
+      <button class="btn-ghost" id="impCancel">Cancelar</button>
     </div>
   </div>
 </div>
@@ -252,18 +316,45 @@ const ACCENTS = {
 };
 const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 
+// ---------- Categorias e flags padrão ----------
+const DEFAULT_CATEGORIES = [
+  {id:"food",      name:"Alimentação", icon:"🍔"},
+  {id:"transport", name:"Transporte",  icon:"🚗"},
+  {id:"housing",   name:"Moradia",     icon:"🏠"},
+  {id:"bills",     name:"Contas",      icon:"💡"},
+  {id:"health",    name:"Saúde",       icon:"🩺"},
+  {id:"education", name:"Educação",    icon:"🎓"},
+  {id:"leisure",   name:"Lazer",       icon:"🎮"},
+  {id:"shopping",  name:"Compras",     icon:"🛒"},
+  {id:"debts",     name:"Dívidas",     icon:"💳"},
+  {id:"work",      name:"Trabalho",    icon:"💼"},
+  {id:"other",     name:"Outros",      icon:"📦"},
+];
+const DEFAULT_FLAGS = [
+  {id:"important",  name:"Importante",   icon:"🔴"},
+  {id:"attention",  name:"Atenção",      icon:"🟡"},
+  {id:"refundable", name:"Reembolsável", icon:"🔵"},
+  {id:"planned",    name:"Planejado",    icon:"🟣"},
+  {id:"extra",      name:"Extra",        icon:"🟢"},
+];
+const BACKUP_VERSION = 4;
+
 // ---------- Estado ----------
 const KEY = "faturamento_web_v1";
 let state = {
   seq: 1,
-  transactions: [],            // {id, seriesId, name, amount, type, monthIndex, dayOfMonth, recurrence, installmentNumber, installmentTotal, settled, isOverride}
+  transactions: [],            // {id, uuid, seriesId, name, amount, type, monthIndex, dayOfMonth, recurrence, installmentNumber, installmentTotal, settled, isOverride, categoryId, flags}
   paidExcludedMonths: [],
+  categories: DEFAULT_CATEGORIES.map(c=>Object.assign({},c)),
+  flagsConfig: DEFAULT_FLAGS.map(f=>Object.assign({},f)),
   prefs: { theme:"system", accent:"GREEN", amoled:false, compact:false, sortField:"DATE", sortAscending:true }
 };
 let currentMonth = nowMonthIndex();
 let editing = null;   // tx sendo editado (ou null = novo)
 let pendingScope = null; // {kind:'edit'|'delete', data}
-
+let pendingImport = null; // backup v4 normalizado, aguardando confirmação do usuário
+let itemEditing = null;   // {kind:'category'|'flag', id:string|null}
+let editorFlags = [];     // flags selecionadas no modal de edição
 // ---------- Utilidades ----------
 // --- Animação dos Números (Contador) ---
 function animateMoney(el, endValue) {
@@ -357,6 +448,21 @@ function ymOf(mi){ return { year: Math.floor(mi/12), month: (mi%12)+1 }; } // mo
 function monthLabel(mi){ const {year,month}=ymOf(mi); return MONTHS[month-1]+" de "+year; }
 function daysInMonth(y,m){ return new Date(y,m,0).getDate(); }
 function uuid(){ return 's'+Date.now().toString(36)+Math.floor(Math.random()*1e6).toString(36); }
+// Identificador persistente da transação (usado em importação/mesclagem).
+function newUuid(){
+  try{ if(typeof crypto!=="undefined" && crypto.randomUUID) return crypto.randomUUID(); }catch(e){}
+  return 'u'+Date.now().toString(36)+'-'+Math.floor(Math.random()*1e9).toString(36)+Math.floor(Math.random()*1e9).toString(36);
+}
+function catById(id){ return id?(state.categories.find(c=>c.id===id)||null):null; }
+function flagById(id){ return id?(state.flagsConfig.find(f=>f.id===id)||null):null; }
+function makeSlugId(name, list){
+  let base=String(name||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"")
+    .replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+  if(!base) base="item";
+  let id=base, k=2;
+  while(list.some(x=>x.id===id)) id=base+"-"+(k++);
+  return id;
+}
 function nextId(){ return state.seq++; }
 function pad2(n){ return String(n).padStart(2,"0"); }
 function formatDate(mi, day){ const {year,month}=ymOf(mi); const d=Math.min(day, daysInMonth(year,month)); return pad2(d)+"/"+pad2(month)+"/"+year; }
@@ -372,22 +478,51 @@ function parseAmount(s){
 
 function load(){
   try{ const raw=localStorage.getItem(KEY); if(raw){ const o=JSON.parse(raw); state = Object.assign(state,o); state.prefs=Object.assign({theme:"system",accent:"GREEN",amoled:false,compact:false,sortField:"DATE",sortAscending:true}, o.prefs||{}); } }catch(e){}
+  normalizeState();
+}
+
+// Preenche campos novos em dados antigos, sem apagar nada.
+function normalizeState(){
+  if(!Array.isArray(state.transactions)) state.transactions=[];
+  if(!Array.isArray(state.paidExcludedMonths)) state.paidExcludedMonths=[];
+  if(!Array.isArray(state.categories)) state.categories=DEFAULT_CATEGORIES.map(c=>Object.assign({},c));
+  if(!Array.isArray(state.flagsConfig)) state.flagsConfig=DEFAULT_FLAGS.map(f=>Object.assign({},f));
+  let maxId=0;
+  for(const t of state.transactions){
+    if(!t.uuid) t.uuid=newUuid();
+    if(!Array.isArray(t.flags)) t.flags=[];
+    if(t.categoryId===undefined) t.categoryId=null;
+    if(typeof t.id!=="number" || !isFinite(t.id)) t.id=++maxId;
+    if(t.id>maxId) maxId=t.id;
+  }
+  if(!(typeof state.seq==="number" && state.seq>maxId)) state.seq=maxId+1;
 }
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 
 // ---------- Recorrência / materialização (espelha o app Android) ----------
-function pushTx(t){ state.transactions.push(Object.assign({id:nextId(), settled:false, isOverride:false, installmentNumber:null, installmentTotal:null, seriesId:null}, t)); }
+function pushTx(t){
+  const tx=Object.assign({id:nextId(), uuid:null, settled:false, isOverride:false,
+    installmentNumber:null, installmentTotal:null, seriesId:null, categoryId:null, flags:null}, t);
+  tx.id=Number(tx.id)||tx.id;
+  if(!tx.uuid) tx.uuid=newUuid();
+  tx.flags=Array.isArray(tx.flags)?tx.flags.slice():[];
+  if(tx.categoryId===undefined) tx.categoryId=null;
+  state.transactions.push(tx);
+}
 
 function addNew(inp){
-  const base = { name:inp.name, amount:inp.amount, type:inp.type, dayOfMonth:inp.dayOfMonth };
+  // categoria e flags fazem parte da base: são propagadas para todas as ocorrências
+  const base = { name:inp.name, amount:inp.amount, type:inp.type, dayOfMonth:inp.dayOfMonth,
+                 categoryId:inp.categoryId??null };
+  const fl=()=>(inp.flags||[]).slice();   // cópia própria por ocorrência
   if(inp.recurrence==="NONE"){
-    pushTx(Object.assign({}, base, {monthIndex:inp.monthIndex, recurrence:"NONE"}));
+    pushTx(Object.assign({}, base, {monthIndex:inp.monthIndex, recurrence:"NONE", flags:fl()}));
   } else if(inp.recurrence==="FIXED"){
     const sid=uuid();
-    for(let k=0;k<36;k++) pushTx(Object.assign({}, base, {seriesId:sid, monthIndex:inp.monthIndex+k, recurrence:"FIXED"}));
+    for(let k=0;k<36;k++) pushTx(Object.assign({}, base, {seriesId:sid, monthIndex:inp.monthIndex+k, recurrence:"FIXED", flags:fl()}));
   } else if(inp.recurrence==="INSTALLMENT"){
     const sid=uuid(); const n=Math.max(2, inp.installmentTotal|0);
-    for(let k=0;k<n;k++) pushTx(Object.assign({}, base, {seriesId:sid, monthIndex:inp.monthIndex+k, recurrence:"INSTALLMENT", installmentNumber:k+1, installmentTotal:n}));
+    for(let k=0;k<n;k++) pushTx(Object.assign({}, base, {seriesId:sid, monthIndex:inp.monthIndex+k, recurrence:"INSTALLMENT", installmentNumber:k+1, installmentTotal:n, flags:fl()}));
   }
 }
 
@@ -398,7 +533,7 @@ function ensureCoverage(upto){
     let latest=rows.reduce((a,b)=> a.monthIndex>=b.monthIndex?a:b);
     let guard=0;
     while(latest.monthIndex<upto && guard++<600){
-      pushTx({seriesId:sid, name:latest.name, amount:latest.amount, type:latest.type, monthIndex:latest.monthIndex+1, dayOfMonth:latest.dayOfMonth, recurrence:"FIXED"});
+      pushTx({seriesId:sid, name:latest.name, amount:latest.amount, type:latest.type, monthIndex:latest.monthIndex+1, dayOfMonth:latest.dayOfMonth, recurrence:"FIXED", categoryId:latest.categoryId??null, flags:(latest.flags||[]).slice()});
       rows=state.transactions.filter(t=>t.seriesId===sid);
       latest=rows.reduce((a,b)=> a.monthIndex>=b.monthIndex?a:b);
     }
@@ -412,10 +547,14 @@ function updateScoped(edited, scope){
   if(orig.recurrence==="NONE" || scope==="SINGLE"){
     orig.name=edited.name; orig.amount=edited.amount; orig.type=edited.type;
     orig.monthIndex=edited.monthIndex; orig.dayOfMonth=edited.dayOfMonth;
+    orig.categoryId=edited.categoryId??null; orig.flags=(edited.flags||[]).slice();
     if(orig.recurrence!=="NONE") orig.isOverride=true;
   } else { // THIS_AND_FOLLOWING
     const rows=state.transactions.filter(t=>t.seriesId===orig.seriesId && t.monthIndex>=orig.monthIndex);
-    for(const r of rows){ r.name=edited.name; r.amount=edited.amount; r.type=edited.type; r.dayOfMonth=edited.dayOfMonth; }
+    for(const r of rows){
+      r.name=edited.name; r.amount=edited.amount; r.type=edited.type; r.dayOfMonth=edited.dayOfMonth;
+      r.categoryId=edited.categoryId??null; r.flags=(edited.flags||[]).slice();
+    }
   }
 }
 
@@ -440,9 +579,22 @@ function applyTheme(){
 
 function subtitle(t){
   const d=formatDate(t.monthIndex,t.dayOfMonth);
-  if(t.recurrence==="FIXED") return d+" · Fixa";
-  if(t.recurrence==="INSTALLMENT") return d+" · Parcela "+t.installmentNumber+"/"+t.installmentTotal;
-  return d;
+  let s=d;
+  if(t.recurrence==="FIXED") s=d+" · Fixa";
+  else if(t.recurrence==="INSTALLMENT") s=d+" · Parcela "+t.installmentNumber+"/"+t.installmentTotal;
+  const c=catById(t.categoryId);
+  if(c) s+=" · "+c.icon+" "+c.name;
+  return s;
+}
+// Flags aparecem como ícones discretos ao lado do nome.
+function appendFlagBadges(nameEl, t){
+  const fl=(t.flags||[]).map(id=>flagById(id)).filter(Boolean);
+  if(!fl.length) return;
+  const sp=document.createElement("span");
+  sp.className="flags";
+  sp.textContent=fl.map(f=>f.icon).join("");
+  sp.title=fl.map(f=>f.name).join(", ");
+  nameEl.appendChild(sp);
 }
 function chipLabel(t){
   if(t.type==="INCOME") return t.settled?"Recebido":"A receber";
@@ -494,6 +646,7 @@ function render(){
     const info=document.createElement("div"); info.className="info";
     info.innerHTML='<div class="name"></div><div class="sub"></div>';
     info.querySelector(".name").textContent=t.name;
+    appendFlagBadges(info.querySelector(".name"), t);
     info.querySelector(".sub").textContent=subtitle(t);
     const chip=document.createElement("button"); chip.className="chip"+(t.settled?" on":"");
     chip.textContent=chipLabel(t);
@@ -522,6 +675,9 @@ function openEditor(tx){
   const day=tx?Math.min(tx.dayOfMonth,daysInMonth(year,month)):Math.min(new Date().getDate(),daysInMonth(year,month));
   document.getElementById("fDate").value=year+"-"+pad2(month)+"-"+pad2(day);
   setSeg("fType", tx?tx.type:"EXPENSE");
+  buildCategorySelect(tx?tx.categoryId:null);
+  editorFlags = tx?(tx.flags||[]).slice():[];
+  buildFlagPicker();
   setSeg("fRec","NONE");
   document.getElementById("instWrap").style.display="none";
   document.getElementById("fInst").value="2";
@@ -536,7 +692,9 @@ function collectEditorInput(){
   if(!isFinite(amount)||amount<=0){ alert("Informe um valor válido."); return null; }
   if(!dv){ alert("Informe a data."); return null; }
   const [y,m,d]=dv.split("-").map(Number);
+  const categoryId=document.getElementById("fCategory").value||null;
   return { name, amount, type:getSeg("fType"), monthIndex:y*12+(m-1), dayOfMonth:d,
+           categoryId, flags:editorFlags.slice(),
            recurrence:getSeg("fRec"), installmentTotal:parseInt(document.getElementById("fInst").value)||2 };
 }
 
@@ -546,7 +704,7 @@ function onSave(){
     addNew(inp); save(); hideOverlay("editOverlay"); render(); return;
   }
   // edição
-  const edited={ id:editing.id, name:inp.name, amount:inp.amount, type:inp.type, monthIndex:inp.monthIndex, dayOfMonth:inp.dayOfMonth };
+  const edited={ id:editing.id, name:inp.name, amount:inp.amount, type:inp.type, monthIndex:inp.monthIndex, dayOfMonth:inp.dayOfMonth, categoryId:inp.categoryId, flags:inp.flags };
   if(editing.recurrence==="NONE"){
     updateScoped(edited,"SINGLE"); save(); hideOverlay("editOverlay"); render();
   } else {
@@ -574,6 +732,114 @@ function applyScope(scope){
   pendingScope=null; save(); hideOverlay("scopeOverlay"); hideOverlay("editOverlay"); render();
 }
 
+// ---------- Widgets de categoria e flags (editor) ----------
+function buildCategorySelect(selected){
+  const sel=document.getElementById("fCategory");
+  sel.innerHTML="";
+  const none=document.createElement("option");
+  none.value=""; none.textContent="— Sem categoria —";
+  sel.appendChild(none);
+  for(const c of state.categories){
+    const o=document.createElement("option");
+    o.value=c.id; o.textContent=c.icon+"  "+c.name;
+    sel.appendChild(o);
+  }
+  // categoria que não existe mais (ex.: excluída) volta como "sem categoria"
+  sel.value = (selected && catById(selected)) ? selected : "";
+}
+
+function buildFlagPicker(){
+  const wrap=document.getElementById("fFlags");
+  wrap.innerHTML="";
+  if(!state.flagsConfig.length){
+    wrap.innerHTML='<div class="hint">Nenhuma flag cadastrada. Crie em Configurações.</div>';
+    return;
+  }
+  for(const f of state.flagsConfig){
+    const b=document.createElement("button");
+    b.type="button";
+    b.className="chip"+(editorFlags.includes(f.id)?" on":"");
+    b.textContent=f.icon+" "+f.name;
+    b.onclick=()=>{
+      const i=editorFlags.indexOf(f.id);
+      if(i>=0) editorFlags.splice(i,1); else editorFlags.push(f.id);
+      b.classList.toggle("on", editorFlags.includes(f.id));
+    };
+    wrap.appendChild(b);
+  }
+}
+
+// ---------- Gerenciamento de categorias e flags ----------
+function listOf(kind){ return kind==="category"?state.categories:state.flagsConfig; }
+
+function renderManageList(kind){
+  const wrap=document.getElementById(kind==="category"?"sCategories":"sFlags");
+  const list=listOf(kind);
+  wrap.innerHTML="";
+  if(!list.length){
+    wrap.innerHTML='<div class="hint">Nenhum item cadastrado.</div>';
+    return;
+  }
+  for(const it of list){
+    const row=document.createElement("div"); row.className="mrow";
+    const ic=document.createElement("div"); ic.className="micon"; ic.textContent=it.icon||"";
+    const nm=document.createElement("div"); nm.className="mname"; nm.textContent=it.name;
+    const ed=document.createElement("button"); ed.textContent="✏️"; ed.title="Editar";
+    ed.onclick=()=>openItemEditor(kind, it.id);
+    const rm=document.createElement("button"); rm.textContent="🗑️"; rm.title="Excluir";
+    rm.onclick=()=>deleteItem(kind, it.id);
+    row.appendChild(ic); row.appendChild(nm); row.appendChild(ed); row.appendChild(rm);
+    wrap.appendChild(row);
+  }
+}
+
+function openItemEditor(kind, id){
+  const it = id ? listOf(kind).find(x=>x.id===id) : null;
+  itemEditing={kind, id: it?it.id:null};
+  const isCat = kind==="category";
+  document.getElementById("itemTitle").textContent =
+    (it?"Editar ":"Nova ") + (isCat?"categoria":"flag");
+  document.getElementById("iIcon").value = it?(it.icon||""):"";
+  document.getElementById("iIcon").placeholder = isCat?"🍔":"🔴";
+  document.getElementById("iName").value = it?it.name:"";
+  showOverlay("itemOverlay");
+}
+
+function saveItem(){
+  if(!itemEditing) return;
+  const kind=itemEditing.kind, list=listOf(kind);
+  const name=document.getElementById("iName").value.trim();
+  const icon=document.getElementById("iIcon").value.trim() || (kind==="category"?"📦":"⚪");
+  if(!name){ alert("Informe o nome."); return; }
+  if(itemEditing.id){
+    const it=list.find(x=>x.id===itemEditing.id);
+    if(it){ it.name=name; it.icon=icon; }
+  } else {
+    list.push({ id: makeSlugId(name, list), name, icon });
+  }
+  itemEditing=null; save(); hideOverlay("itemOverlay");
+  renderManageList(kind); render();
+}
+
+// Excluir categoria/flag NUNCA exclui transações: apenas desvincula.
+function deleteItem(kind, id){
+  const list=listOf(kind);
+  const it=list.find(x=>x.id===id); if(!it) return;
+  const used = kind==="category"
+    ? state.transactions.filter(t=>t.categoryId===id).length
+    : state.transactions.filter(t=>(t.flags||[]).includes(id)).length;
+  const extra = used ? "\n\n"+used+" transação(ões) usam este item. Elas serão mantidas, apenas perderão "+(kind==="category"?"a categoria":"esta flag")+"." : "";
+  if(!confirm("Excluir \""+it.name+"\"?"+extra)) return;
+  if(kind==="category"){
+    state.categories=state.categories.filter(x=>x.id!==id);
+    for(const t of state.transactions) if(t.categoryId===id) t.categoryId=null;
+  } else {
+    state.flagsConfig=state.flagsConfig.filter(x=>x.id!==id);
+    for(const t of state.transactions) if(Array.isArray(t.flags)) t.flags=t.flags.filter(f=>f!==id);
+  }
+  save(); renderManageList(kind); render();
+}
+
 // ---------- Configurações ----------
 function buildAccentSwatches(){
   const wrap=document.getElementById("sAccent"); wrap.innerHTML="";
@@ -594,41 +860,205 @@ function openSettings(){
   setSwitch("sCompact",state.prefs.compact);
   setSeg("sSortField",state.prefs.sortField);
   setSwitch("sSortAsc",state.prefs.sortAscending);
+  renderManageList("category");
+  renderManageList("flag");
   showOverlay("settingsOverlay");
 }
 
-// ---------- Backup ----------
-function exportBackup(){
-  const data={ version:3, transactions: state.transactions.map(t=>({
-    seriesId:t.seriesId, name:t.name, amount:t.amount, type:t.type, monthIndex:t.monthIndex,
-    dayOfMonth:t.dayOfMonth, recurrence:t.recurrence, installmentNumber:t.installmentNumber,
-    installmentTotal:t.installmentTotal, isOverride:!!t.isOverride, settled:!!t.settled })), tasks:[] };
-  const json=JSON.stringify(data,null,2);
-  const blob=new Blob([json],{type:"application/json"});
-  const fname="faturamento-backup.json";
-  const file=new File([blob],fname,{type:"application/json"});
-  if(navigator.canShare && navigator.canShare({files:[file]})){
-    navigator.share({files:[file], title:"Backup Faturamento"}).catch(()=>{});
-  } else {
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement("a"); a.href=url; a.download=fname; a.click();
-    setTimeout(()=>URL.revokeObjectURL(url),2000);
-  }
-}
-function importBackup(text){
+// ---------- Backup / exportação ----------
+// Compartilha (mobile) ou baixa (desktop) — mesmo caminho que já era usado.
+function shareOrDownload(fname, mime, text){
+  const blob=new Blob([text],{type:mime});
   try{
-    const o=JSON.parse(text);
-    const arr=o.transactions||[];
-    state.transactions=[]; state.seq=1;
-    for(const t of arr){
-      pushTx({ seriesId:t.seriesId??null, name:t.name, amount:Number(t.amount), type:t.type,
-        monthIndex:t.monthIndex, dayOfMonth:t.dayOfMonth, recurrence:t.recurrence,
-        installmentNumber:t.installmentNumber??null, installmentTotal:t.installmentTotal??null,
-        isOverride:!!t.isOverride });
-      state.transactions[state.transactions.length-1].settled=!!t.settled;
+    const file=new File([blob],fname,{type:mime});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({files:[file], title:"Faturamento"}).catch(()=>{});
+      return;
     }
-    save(); render(); alert("Backup importado ("+arr.length+" itens).");
-  }catch(e){ alert("Erro ao importar: "+e.message); }
+  }catch(e){}
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download=fname; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+
+// Transação no formato do backup (v4). Mantém os campos da v3 para interoperabilidade.
+function txToBackup(t){
+  return { uuid:t.uuid, seriesId:t.seriesId??null, name:t.name, amount:t.amount, type:t.type,
+    monthIndex:t.monthIndex, dayOfMonth:t.dayOfMonth, recurrence:t.recurrence,
+    installmentNumber:t.installmentNumber??null, installmentTotal:t.installmentTotal??null,
+    isOverride:!!t.isOverride, settled:!!t.settled,
+    categoryId:t.categoryId??null, flags:(t.flags||[]).slice() };
+}
+
+function buildBackup(){
+  return {
+    format:"faturamento",
+    version:BACKUP_VERSION,
+    exportedAt:new Date().toISOString(),
+    categories: state.categories.map(c=>({id:c.id, name:c.name, icon:c.icon})),
+    flags: state.flagsConfig.map(f=>({id:f.id, name:f.name, icon:f.icon})),
+    transactions: state.transactions.map(txToBackup),
+    settings: { prefs:Object.assign({},state.prefs), paidExcludedMonths:state.paidExcludedMonths.slice() },
+    tasks: []   // mantido por compatibilidade com o app Android
+  };
+}
+
+function exportBackup(){
+  shareOrDownload("faturamento-backup.json","application/json",JSON.stringify(buildBackup(),null,2));
+}
+
+// ---------- Exportação CSV (uso externo: Excel / LibreOffice pt-BR) ----------
+function csvCell(v){
+  v = String(v==null?"":v);
+  return /[";\r\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v;
+}
+function exportCSV(){
+  const rows=[["data","descricao","tipo","categoria","valor","pago","flags"]];
+  const sorted=state.transactions.slice().sort((a,b)=>
+    (a.monthIndex-b.monthIndex) || (a.dayOfMonth-b.dayOfMonth) || (a.id-b.id));
+  for(const t of sorted){
+    const c=catById(t.categoryId);
+    rows.push([
+      formatDate(t.monthIndex,t.dayOfMonth),
+      t.name,
+      t.type==="INCOME"?"Entrada":"Saída",
+      c?c.name:"",
+      Number(t.amount||0).toFixed(2).replace(".",","),   // decimal pt-BR
+      t.settled?"Sim":"Não",
+      (t.flags||[]).map(id=>{ const f=flagById(id); return f?f.name:id; }).join(", ")
+    ]);
+  }
+  const csv=rows.map(r=>r.map(csvCell).join(";")).join("\r\n");
+  const stamp=new Date().toISOString().slice(0,10);
+  shareOrDownload("faturamento-"+stamp+".csv","text/csv;charset=utf-8","\ufeff"+csv);  // BOM p/ Excel
+}
+
+// ---------- Leitura / migração de backups ----------
+function backupTxIn(t){
+  const rec=["NONE","FIXED","INSTALLMENT"].includes(t.recurrence)?t.recurrence:"NONE";
+  return {
+    uuid: t.uuid || newUuid(),
+    seriesId: t.seriesId ?? null,
+    name: String(t.name ?? ""),
+    amount: Number(t.amount) || 0,
+    type: t.type==="INCOME" ? "INCOME" : "EXPENSE",
+    monthIndex: Math.trunc(Number(t.monthIndex)) || 0,
+    dayOfMonth: Math.min(31, Math.max(1, Math.trunc(Number(t.dayOfMonth)) || 1)),
+    recurrence: rec,
+    installmentNumber: t.installmentNumber ?? null,
+    installmentTotal: t.installmentTotal ?? null,
+    isOverride: !!t.isOverride,
+    settled: !!t.settled,
+    categoryId: t.categoryId ?? null,
+    flags: Array.isArray(t.flags) ? t.flags.slice() : []
+  };
+}
+function cleanItem(x, fallbackIcon){
+  const id=String((x && x.id) || "").trim();
+  if(!id) return null;
+  return { id, name:String(x.name!=null?x.name:id), icon:String(x.icon || fallbackIcon) };
+}
+function normalizeBackup(o){
+  return {
+    format:"faturamento",
+    version:BACKUP_VERSION,
+    exportedAt:(o && o.exportedAt) || null,
+    categories:((o && o.categories) || []).map(c=>cleanItem(c,"📦")).filter(Boolean),
+    flags:((o && o.flags) || []).map(f=>cleanItem(f,"⚪")).filter(Boolean),
+    transactions:((o && o.transactions) || []).map(backupTxIn),
+    settings:(o && o.settings) || {}
+  };
+}
+// Backups v3 (e anteriores) não têm categorias, flags nem uuid: entram com padrões seguros.
+function migrateV3ToV4(data){
+  const out=normalizeBackup(data);
+  out.migratedFrom = Number(data && data.version) || 3;
+  return out;
+}
+function parseBackup(text){
+  const o=JSON.parse(text);
+  if(!o || typeof o!=="object" || !Array.isArray(o.transactions))
+    throw new Error("arquivo não parece um backup do Faturamento.");
+  const ver=Number(o.version) || 3;
+  const out = ver>=4 ? normalizeBackup(o) : migrateV3ToV4(o);
+  out.sourceVersion = ver;
+  return out;
+}
+
+// ---------- Importação: visualizar -> confirmar ----------
+function previewImport(text){
+  let b;
+  try{ b=parseBackup(text); }
+  catch(e){ alert("Erro ao ler o arquivo: "+e.message); return; }
+  pendingImport=b;
+
+  const txs=b.transactions;
+  let inc=0, exp=0, minM=null, maxM=null;
+  for(const t of txs){
+    if(t.type==="INCOME") inc+=t.amount; else exp+=t.amount;
+    if(minM===null || t.monthIndex<minM) minM=t.monthIndex;
+    if(maxM===null || t.monthIndex>maxM) maxM=t.monthIndex;
+  }
+  const known=new Set(state.transactions.map(t=>t.uuid));
+  const novas=txs.filter(t=>!known.has(t.uuid)).length;
+
+  const periodo = txs.length ? (minM===maxM ? monthLabel(minM) : monthLabel(minM)+" → "+monthLabel(maxM)) : "—";
+  const rows=[
+    ["Versão do arquivo", String(b.sourceVersion) + (b.migratedFrom ? " (migrado p/ v4)" : "")],
+    ["Transações", String(txs.length)],
+    ["Período", periodo],
+    ["Categorias", String(b.categories.length)],
+    ["Flags", String(b.flags.length)],
+    ["Entradas", money(inc)],
+    ["Saídas", money(exp)],
+    ["Novas ao mesclar", novas+" de "+txs.length]
+  ];
+  const info=document.getElementById("importInfo");
+  info.innerHTML="";
+  for(const kv of rows){
+    const r=document.createElement("div"); r.className="row";
+    const ke=document.createElement("span"); ke.className="k"; ke.textContent=kv[0];
+    const ve=document.createElement("span"); ve.className="v"; ve.textContent=kv[1];
+    r.appendChild(ke); r.appendChild(ve); info.appendChild(r);
+  }
+  showOverlay("importOverlay");
+}
+
+function applyImport(mode){
+  const b=pendingImport; if(!b) return;
+  let added=0, skipped=0;
+
+  if(mode==="REPLACE"){
+    if(!confirm("Substituir apaga todas as transações atuais. Continuar?")) return;
+    state.transactions=[]; state.seq=1;
+    if(b.categories.length) state.categories=b.categories.map(c=>Object.assign({},c));
+    if(b.flags.length) state.flagsConfig=b.flags.map(f=>Object.assign({},f));
+    const st=b.settings||{};
+    state.paidExcludedMonths=Array.isArray(st.paidExcludedMonths)?st.paidExcludedMonths.slice():[];
+    if(st.prefs) state.prefs=Object.assign(state.prefs, st.prefs);
+    for(const t of b.transactions){ pushTx(t); added++; }   // pushTx gera id novo e preserva o uuid
+  } else {
+    // mescla categorias e flags por id (o que já existe localmente prevalece)
+    for(const c of b.categories) if(!state.categories.some(x=>x.id===c.id)) state.categories.push(Object.assign({},c));
+    for(const f of b.flags) if(!state.flagsConfig.some(x=>x.id===f.id)) state.flagsConfig.push(Object.assign({},f));
+    const seen=new Set(state.transactions.map(t=>t.uuid));
+    for(const t of b.transactions){
+      if(t.uuid && seen.has(t.uuid)){ skipped++; continue; }   // uuid evita duplicação
+      pushTx(t); seen.add(t.uuid); added++;
+    }
+    const st=b.settings||{};
+    if(Array.isArray(st.paidExcludedMonths))
+      for(const m of st.paidExcludedMonths) if(!state.paidExcludedMonths.includes(m)) state.paidExcludedMonths.push(m);
+  }
+
+  pendingImport=null;
+  normalizeState(); save();
+  hideOverlay("importOverlay");
+  renderManageList("category"); renderManageList("flag");
+  render();
+  alert(mode==="REPLACE"
+    ? "Backup restaurado ("+added+" transações)."
+    : "Mesclagem concluída: "+added+" adicionada(s), "+skipped+" já existiam.");
 }
 
 // ---------- Overlays ----------
@@ -668,11 +1098,20 @@ function bind(){
   document.getElementById("settingsClose").onclick=()=>hideOverlay("settingsOverlay");
 
   document.getElementById("bExport").onclick=exportBackup;
+  document.getElementById("bExportCsv").onclick=exportCSV;
   document.getElementById("bImport").onclick=()=>document.getElementById("importFile").click();
   document.getElementById("importFile").onchange=(e)=>{
     const f=e.target.files[0]; if(!f) return;
-    const r=new FileReader(); r.onload=()=>importBackup(r.result); r.readAsText(f); e.target.value="";
+    const r=new FileReader(); r.onload=()=>previewImport(r.result); r.readAsText(f); e.target.value="";
   };
+  document.getElementById("impMerge").onclick=()=>applyImport("MERGE");
+  document.getElementById("impReplace").onclick=()=>applyImport("REPLACE");
+  document.getElementById("impCancel").onclick=()=>{ pendingImport=null; hideOverlay("importOverlay"); };
+
+  document.getElementById("catAdd").onclick=()=>openItemEditor("category",null);
+  document.getElementById("flagAdd").onclick=()=>openItemEditor("flag",null);
+  document.getElementById("itemCancel").onclick=()=>{ itemEditing=null; hideOverlay("itemOverlay"); };
+  document.getElementById("itemSave").onclick=saveItem;
 
   // fecha overlay ao tocar no fundo
   document.querySelectorAll(".overlay").forEach(o=> o.onclick=(e)=>{ if(e.target===o) o.classList.remove("show"); });

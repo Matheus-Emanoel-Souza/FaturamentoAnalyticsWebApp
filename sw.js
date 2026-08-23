@@ -1,5 +1,6 @@
 // Service worker simples: cache para funcionar offline.
-const CACHE = "faturamento-v1";
+// v2: categorias, flags e backup v4.
+const CACHE = "faturamento-v2";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", (e) => {
@@ -16,5 +17,29 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
-  e.respondWith(caches.match(e.request).then((r) => r || fetch(e.request)));
+  const req = e.request;
+  if (req.method !== "GET") return;
+
+  // HTML: rede primeiro, para nunca servir uma versão antiga do app.
+  const isHTML =
+    req.mode === "navigate" ||
+    (req.headers.get("accept") || "").includes("text/html");
+
+  if (isHTML) {
+    e.respondWith(
+      fetch(req)
+        .then((res) => {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+          return res;
+        })
+        .catch(() =>
+          caches.match(req).then((r) => r || caches.match("./index.html"))
+        )
+    );
+    return;
+  }
+
+  // Demais assets: cache primeiro.
+  e.respondWith(caches.match(req).then((r) => r || fetch(req)));
 });
