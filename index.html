@@ -15,14 +15,16 @@
     --bg:#121212; --surface:#1e1e1e; --surface2:#2a2a2a;
     --text:#ececec; --muted:#9e9e9e; --divider:rgba(255,255,255,.10);
     --income:#81C784; --expense:#E57373;
+    --deemph:#4a4a4a; --track:#2a2a2a;
     --row-pad:14px;
   }
   body.light{
     --bg:#f5f5f5; --surface:#ffffff; --surface2:#eeeeee;
     --text:#1c1b1f; --muted:#666; --divider:rgba(0,0,0,.10);
     --income:#2E7D32; --expense:#C62828;
+    --deemph:#cfcfcf; --track:#e4e4e4;
   }
-  body.amoled{ --bg:#000000; --surface:#000000; --surface2:#0a0a0a; --divider:rgba(255,255,255,.18); }
+  body.amoled{ --bg:#000000; --surface:#000000; --surface2:#0a0a0a; --divider:rgba(255,255,255,.18); --track:#161616; }
   body.compact{ --row-pad:8px; }
 
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -117,6 +119,36 @@
   .infolist .k{ color:var(--muted); }
   .infolist .v{ text-align:right; }
 
+  /* Analise por categoria */
+  .anhead{ display:flex; align-items:center; justify-content:center; gap:14px; margin:2px 0 12px; }
+  .anhead button{ background:none; border:none; color:var(--text); font-size:22px; padding:2px 8px; cursor:pointer; }
+  .anhead .label{ font-size:15px; min-width:150px; text-align:center; }
+  /* Numero-heroi: figuras proporcionais, mesma fonte do app */
+  .anhero{ text-align:center; margin:14px 0 2px; }
+  .anhero .v{ font-size:34px; font-weight:700; line-height:1.1; }
+  .anhero .k{ font-size:12px; color:var(--muted); margin-top:2px; }
+  .andelta{ text-align:center; font-size:12.5px; margin-top:6px; color:var(--muted); }
+  .andelta.up{ color:var(--expense); } .andelta.down{ color:var(--income); }
+  /* Comparativo de 6 meses — padrao "enfase": mes atual em destaque, resto recessivo */
+  .antrend{ display:flex; align-items:flex-end; justify-content:space-between; gap:6px; height:56px; margin:16px 2px 4px; }
+  .antrend .col{ flex:1; display:flex; flex-direction:column; justify-content:flex-end; height:100%; }
+  .antrend .bar{ width:100%; border-radius:4px 4px 0 0; background:var(--deemph); min-height:2px; }
+  .antrend .col.on .bar{ background:var(--accent); }
+  .antrendlbl{ display:flex; justify-content:space-between; gap:6px; margin:0 2px 6px; }
+  .antrendlbl span{ flex:1; text-align:center; font-size:10.5px; color:var(--muted); }
+  .antrendlbl span.on{ color:var(--text); font-weight:600; }
+  /* Lista ranqueada: uma cor por serie (sem rampa em categorias nominais) */
+  .anlist{ margin-top:6px; }
+  .anrow{ padding:10px 0; border-bottom:1px solid var(--divider); }
+  .anrow:last-child{ border-bottom:none; }
+  .anrow .top{ display:flex; align-items:baseline; gap:8px; margin-bottom:7px; }
+  .anrow .ic{ font-size:15px; }
+  .anrow .nm{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:14px; }
+  .anrow .vl{ font-weight:700; font-size:14px; white-space:nowrap; }
+  .anrow .pc{ font-size:12px; color:var(--muted); min-width:44px; text-align:right; font-variant-numeric:tabular-nums; }
+  .antrack{ height:6px; border-radius:4px; background:var(--track); }
+  .anfill{ height:6px; border-radius:4px; background:var(--accent); min-width:3px; }
+
   .install{ position:fixed; left:12px; right:12px; bottom:calc(90px + env(safe-area-inset-bottom));
     max-width:536px; margin:0 auto; background:var(--surface2); border:1px solid var(--divider);
     border-radius:14px; padding:12px 14px; display:none; align-items:center; gap:10px; z-index:9;
@@ -132,6 +164,7 @@
   <header>
     <button class="paidbtn" id="paidBtn" title="Descontar pagos do saldo (este mês)">R$</button>
     <div class="title">Faturamento</div>
+    <button class="iconbtn" id="analysisBtn" title="Análise por categoria">📊</button>
     <button class="iconbtn" id="settingsBtn" title="Configurações">⚙️</button>
   </header>
 
@@ -288,6 +321,37 @@
   </div>
 </div>
 
+<!-- Modal: análise por categoria -->
+<div class="overlay" id="analysisOverlay">
+  <div class="sheet">
+    <h3>Análise por categoria</h3>
+    <div class="anhead">
+      <button id="anPrev">‹</button>
+      <div class="label" id="anMonthLabel">—</div>
+      <button id="anNext">›</button>
+    </div>
+    <div class="seg" id="anType">
+      <button data-v="EXPENSE" class="sel">Saídas</button>
+      <button data-v="INCOME">Entradas</button>
+    </div>
+
+    <div class="anhero">
+      <div class="v" id="anTotal">R$ 0,00</div>
+      <div class="k" id="anTotalLbl">total de saídas</div>
+    </div>
+    <div class="andelta" id="anDelta"></div>
+
+    <div class="antrend" id="anTrend"></div>
+    <div class="antrendlbl" id="anTrendLbl"></div>
+
+    <div class="anlist" id="anList"></div>
+
+    <div class="actions" style="margin-top:18px">
+      <button class="btn-primary" id="anClose">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: pré-visualização da importação -->
 <div class="overlay" id="importOverlay">
   <div class="sheet">
@@ -355,6 +419,8 @@ let pendingScope = null; // {kind:'edit'|'delete', data}
 let pendingImport = null; // backup v4 normalizado, aguardando confirmação do usuário
 let itemEditing = null;   // {kind:'category'|'flag', id:string|null}
 let editorFlags = [];     // flags selecionadas no modal de edição
+let analysisMonth = null; // mês em foco na análise (independe do mês da lista)
+let analysisType = "EXPENSE";
 // ---------- Utilidades ----------
 // --- Animação dos Números (Contador) ---
 function animateMoney(el, endValue) {
@@ -865,6 +931,117 @@ function openSettings(){
   showOverlay("settingsOverlay");
 }
 
+// ---------- Análise por categoria ----------
+const NO_CAT = { id:null, name:"Sem categoria", icon:"—" };
+
+// Mesma regra do resumo do mês: com "descontar pagos" ligado, saídas quitadas saem da conta.
+function countsInAnalysis(t, mi, type){
+  if(t.monthIndex!==mi || t.type!==type) return false;
+  if(type==="EXPENSE" && state.paidExcludedMonths.includes(mi) && t.settled) return false;
+  return true;
+}
+function monthTotal(mi, type){
+  let s=0;
+  for(const t of state.transactions) if(countsInAnalysis(t,mi,type)) s+=t.amount;
+  return s;
+}
+// Agrupa por categoria e ordena do maior para o menor.
+function totalsByCategory(mi, type){
+  const map=new Map();
+  for(const t of state.transactions){
+    if(!countsInAnalysis(t,mi,type)) continue;
+    const key=t.categoryId||"";
+    map.set(key,(map.get(key)||0)+t.amount);
+  }
+  const out=[];
+  for(const [key,total] of map){
+    const c=key?catById(key):null;
+    out.push({ id:key||null, name:c?c.name:NO_CAT.name, icon:c?c.icon:NO_CAT.icon, total });
+  }
+  out.sort((a,b)=> b.total-a.total || a.name.localeCompare(b.name,"pt-BR"));
+  return out;
+}
+function shortMonth(mi){ const {month}=ymOf(mi); return MONTHS[month-1].slice(0,3).toLowerCase(); }
+
+function openAnalysis(){
+  analysisMonth = currentMonth;
+  renderAnalysis();
+  showOverlay("analysisOverlay");
+}
+
+function renderAnalysis(){
+  ensureCoverage(analysisMonth+1);   // séries fixas cobrem o mês consultado
+  const type=analysisType, mi=analysisMonth;
+  document.getElementById("anMonthLabel").textContent=monthLabel(mi);
+  setSeg("anType", type);
+
+  const total=monthTotal(mi,type);
+  document.getElementById("anTotal").textContent=money(total);
+  document.getElementById("anTotal").className="v "+(type==="INCOME"?"green":"red");
+  document.getElementById("anTotalLbl").textContent = type==="INCOME"?"total de entradas":"total de saídas";
+
+  // Delta contra o mês anterior (▲/▼ + número: nunca só a cor)
+  const prev=monthTotal(mi-1,type);
+  const dEl=document.getElementById("anDelta");
+  dEl.className="andelta";
+  if(prev>0 && total>0){
+    const pct=(total-prev)/prev*100;
+    const subiu=pct>=0;
+    dEl.textContent=(subiu?"▲ ":"▼ ")+Math.abs(pct).toFixed(1).replace(".",",")+"% vs "+monthLabel(mi-1).split(" de ")[0];
+    // em saídas, subir é ruim; em entradas, subir é bom
+    const ruim = type==="EXPENSE" ? subiu : !subiu;
+    dEl.classList.add(ruim?"up":"down");
+  } else if(total>0 && prev===0){
+    dEl.textContent="sem movimento no mês anterior";
+  } else {
+    dEl.textContent="";
+  }
+
+  // Comparativo de 6 meses — "ênfase": o mês em foco no destaque, os demais recessivos
+  const trend=document.getElementById("anTrend"), tlbl=document.getElementById("anTrendLbl");
+  trend.innerHTML=""; tlbl.innerHTML="";
+  const serie=[];
+  for(let k=5;k>=0;k--) serie.push({mi:mi-k, v:monthTotal(mi-k,type)});
+  const max=Math.max(...serie.map(x=>x.v), 0);
+  for(const p of serie){
+    const col=document.createElement("div");
+    col.className="col"+(p.mi===mi?" on":"");
+    const bar=document.createElement("div");
+    bar.className="bar";
+    bar.style.height = (max>0 && p.v>0) ? Math.max(2, (p.v/max)*100)+"%" : "0%";
+    col.title=monthLabel(p.mi)+": "+money(p.v);   // valor acessível no toque/hover
+    col.appendChild(bar); trend.appendChild(col);
+    const sp=document.createElement("span");
+    sp.className=(p.mi===mi?"on":""); sp.textContent=shortMonth(p.mi);
+    tlbl.appendChild(sp);
+  }
+
+  // Lista ranqueada: barra = participação no total, casando com o % exibido
+  const list=document.getElementById("anList");
+  list.innerHTML="";
+  const rows=totalsByCategory(mi,type);
+  if(!rows.length){
+    list.innerHTML='<div class="empty">Nada em '+(type==="INCOME"?"entradas":"saídas")+' neste mês.</div>';
+    return;
+  }
+  for(const r of rows){
+    const pct = total>0 ? (r.total/total*100) : 0;
+    const row=document.createElement("div"); row.className="anrow";
+    const top=document.createElement("div"); top.className="top";
+    const ic=document.createElement("span"); ic.className="ic"; ic.textContent=r.icon;
+    const nm=document.createElement("span"); nm.className="nm"; nm.textContent=r.name;
+    const vl=document.createElement("span"); vl.className="vl"; vl.textContent=money(r.total);
+    const pc=document.createElement("span"); pc.className="pc"; pc.textContent=pct.toFixed(1).replace(".",",")+"%";
+    top.appendChild(ic); top.appendChild(nm); top.appendChild(vl); top.appendChild(pc);
+    const track=document.createElement("div"); track.className="antrack";
+    const fill=document.createElement("div"); fill.className="anfill";
+    fill.style.width=pct+"%";
+    track.appendChild(fill);
+    row.appendChild(top); row.appendChild(track);
+    list.appendChild(row);
+  }
+}
+
 // ---------- Backup / exportação ----------
 // Compartilha (mobile) ou baixa (desktop) — mesmo caminho que já era usado.
 function shareOrDownload(fname, mime, text){
@@ -1076,6 +1253,11 @@ function bind(){
     save(); render();
   };
   document.getElementById("settingsBtn").onclick=openSettings;
+  document.getElementById("analysisBtn").onclick=openAnalysis;
+  document.getElementById("anPrev").onclick=()=>{ analysisMonth--; renderAnalysis(); };
+  document.getElementById("anNext").onclick=()=>{ analysisMonth++; renderAnalysis(); };
+  document.querySelectorAll("#anType button").forEach(b=> b.onclick=()=>{ analysisType=b.dataset.v; renderAnalysis(); });
+  document.getElementById("anClose").onclick=()=>hideOverlay("analysisOverlay");
 
   document.querySelectorAll("#fType button").forEach(b=> b.onclick=()=>setSeg("fType",b.dataset.v));
   document.querySelectorAll("#fRec button").forEach(b=> b.onclick=()=>{

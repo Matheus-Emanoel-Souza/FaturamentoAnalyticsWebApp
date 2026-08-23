@@ -1,6 +1,6 @@
 // Service worker simples: cache para funcionar offline.
-// v2: categorias, flags e backup v4.
-const CACHE = "faturamento-v2";
+// v3: analise por categoria.
+const CACHE = "faturamento-v3";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", (e) => {
