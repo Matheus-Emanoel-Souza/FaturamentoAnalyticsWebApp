@@ -149,6 +149,21 @@
   .antrack{ height:6px; border-radius:4px; background:var(--track); }
   .anfill{ height:6px; border-radius:4px; background:var(--accent); min-width:3px; }
 
+  /* Gastos fixos (dentro da análise) */
+  .afrow{ display:flex; align-items:center; gap:10px; background:var(--surface2); border-radius:10px; padding:10px 12px; margin-bottom:6px; }
+  body.amoled .afrow{ background:#0d0d0d; border:1px solid var(--divider); }
+  .afrow .ic{ font-size:17px; width:22px; text-align:center; flex-shrink:0; }
+  .afrow .info{ flex:1; min-width:0; }
+  .afrow .name{ font-weight:600; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .afrow .sub{ font-size:12px; color:var(--muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .afrow .right{ text-align:right; flex-shrink:0; }
+  .afrow .val{ font-weight:700; font-size:14px; white-space:nowrap; }
+  .afrow .stat{ font-size:10.5px; margin-top:3px; }
+  .afrow .stat.paid{ color:var(--income); }
+  .afrow .stat.pending{ color:var(--muted); }
+  body.compact .afrow{ padding:7px 10px; }
+  body.compact .afrow .name{ font-size:13px; }
+
   .install{ position:fixed; left:12px; right:12px; bottom:calc(90px + env(safe-area-inset-bottom));
     max-width:536px; margin:0 auto; background:var(--surface2); border:1px solid var(--divider);
     border-radius:14px; padding:12px 14px; display:none; align-items:center; gap:10px; z-index:9;
@@ -321,30 +336,59 @@
   </div>
 </div>
 
-<!-- Modal: análise por categoria -->
+<!-- Modal: análise -->
 <div class="overlay" id="analysisOverlay">
   <div class="sheet">
-    <h3>Análise por categoria</h3>
+    <h3>Análise</h3>
     <div class="anhead">
       <button id="anPrev">‹</button>
       <div class="label" id="anMonthLabel">—</div>
       <button id="anNext">›</button>
     </div>
-    <div class="seg" id="anType">
-      <button data-v="EXPENSE" class="sel">Saídas</button>
-      <button data-v="INCOME">Entradas</button>
+    <div class="seg" id="anView">
+      <button data-v="CATEGORY" class="sel">Por categoria</button>
+      <button data-v="FIXED">Gastos fixos</button>
     </div>
 
-    <div class="anhero">
-      <div class="v" id="anTotal">R$ 0,00</div>
-      <div class="k" id="anTotalLbl">total de saídas</div>
+    <div id="anCategoryView">
+      <div class="seg" id="anType" style="margin-top:10px">
+        <button data-v="EXPENSE" class="sel">Saídas</button>
+        <button data-v="INCOME">Entradas</button>
+      </div>
+
+      <div class="anhero">
+        <div class="v" id="anTotal">R$ 0,00</div>
+        <div class="k" id="anTotalLbl">total de saídas</div>
+      </div>
+      <div class="andelta" id="anDelta"></div>
+
+      <div class="antrend" id="anTrend"></div>
+      <div class="antrendlbl" id="anTrendLbl"></div>
+
+      <div class="anlist" id="anList"></div>
     </div>
-    <div class="andelta" id="anDelta"></div>
 
-    <div class="antrend" id="anTrend"></div>
-    <div class="antrendlbl" id="anTrendLbl"></div>
+    <div id="anFixedView" style="display:none">
+      <div class="seclabel" style="margin-top:14px">Gastos fixos mensais</div>
+      <div class="anhero">
+        <div class="v" id="afTotal">R$ 0,00</div>
+        <div class="k" id="afCountLbl">0 gastos fixos</div>
+      </div>
 
-    <div class="anlist" id="anList"></div>
+      <div class="infolist" id="afPaidWrap" style="margin-top:14px">
+        <div class="row"><span class="k">Total mensal</span><span class="v" id="afTotalRow">R$ 0,00</span></div>
+        <div class="row"><span class="k">Já pago</span><span class="v green" id="afPaidRow">R$ 0,00</span></div>
+        <div class="row"><span class="k">Pendente</span><span class="v red" id="afPendingRow">R$ 0,00</span></div>
+      </div>
+
+      <div id="afCatWrap">
+        <div class="seclabel">Por categoria</div>
+        <div class="anlist" id="afCatList"></div>
+      </div>
+
+      <div class="seclabel">Detalhamento</div>
+      <div class="anlist" id="afList"></div>
+    </div>
 
     <div class="actions" style="margin-top:18px">
       <button class="btn-primary" id="anClose">Fechar</button>
@@ -421,6 +465,7 @@ let itemEditing = null;   // {kind:'category'|'flag', id:string|null}
 let editorFlags = [];     // flags selecionadas no modal de edição
 let analysisMonth = null; // mês em foco na análise (independe do mês da lista)
 let analysisType = "EXPENSE";
+let analysisView = "CATEGORY"; // "CATEGORY" (análise por categoria) | "FIXED" (gastos fixos)
 // ---------- Utilidades ----------
 // --- Animação dos Números (Contador) ---
 function animateMoney(el, endValue) {
@@ -971,8 +1016,16 @@ function openAnalysis(){
 
 function renderAnalysis(){
   ensureCoverage(analysisMonth+1);   // séries fixas cobrem o mês consultado
+  document.getElementById("anMonthLabel").textContent=monthLabel(analysisMonth);
+  setSeg("anView", analysisView);
+  document.getElementById("anCategoryView").style.display = analysisView==="FIXED" ? "none" : "";
+  document.getElementById("anFixedView").style.display = analysisView==="FIXED" ? "" : "none";
+  if(analysisView==="FIXED") renderFixedExpenses();
+  else renderCategoryAnalysis();
+}
+
+function renderCategoryAnalysis(){
   const type=analysisType, mi=analysisMonth;
-  document.getElementById("anMonthLabel").textContent=monthLabel(mi);
   setSeg("anType", type);
 
   const total=monthTotal(mi,type);
@@ -1038,6 +1091,103 @@ function renderAnalysis(){
     fill.style.width=pct+"%";
     track.appendChild(fill);
     row.appendChild(top); row.appendChild(track);
+    list.appendChild(row);
+  }
+}
+
+// ---------- Gastos fixos (dentro da análise) ----------
+// Fonte da verdade: EXPENSE + FIXED. Categoria e flag nunca definem o que é fixo.
+// Recorrências FIXED já vêm materializadas por monthIndex (ver ensureCoverage), então
+// basta filtrar o mês em foco — não soma ocorrências de outros meses da mesma série.
+function fixedExpensesOf(mi){
+  return state.transactions.filter(t=> t.type==="EXPENSE" && t.recurrence==="FIXED" && t.monthIndex===mi);
+}
+// Categoria + nomes das flags, no mesmo espírito de subtitle(), sem a data (já sabemos o mês).
+function fixedSubtitle(t){
+  const parts=[];
+  const c=catById(t.categoryId);
+  if(c) parts.push(c.name);
+  const fl=(t.flags||[]).map(id=>flagById(id)).filter(Boolean).map(f=>f.name);
+  if(fl.length) parts.push(fl.join(", "));
+  return parts.join(" · ");
+}
+// Mesmo agrupamento de totalsByCategory, mas sobre uma lista já filtrada (gastos fixos do mês).
+function fixedTotalsByCategory(rows){
+  const map=new Map();
+  for(const t of rows) map.set(t.categoryId||"", (map.get(t.categoryId||"")||0)+t.amount);
+  const out=[];
+  for(const [key,total] of map){
+    const c=key?catById(key):null;
+    out.push({ id:key||null, name:c?c.name:NO_CAT.name, icon:c?c.icon:NO_CAT.icon, total });
+  }
+  out.sort((a,b)=> b.total-a.total || a.name.localeCompare(b.name,"pt-BR"));
+  return out;
+}
+
+function renderFixedExpenses(){
+  const mi=analysisMonth;
+  const rows=fixedExpensesOf(mi).slice().sort((a,b)=> b.amount-a.amount || a.name.localeCompare(b.name,"pt-BR"));
+  const total=rows.reduce((s,t)=>s+t.amount,0);
+  const paid=rows.reduce((s,t)=> s+(t.settled?t.amount:0),0);
+  const pending=total-paid;
+
+  document.getElementById("afTotal").textContent=money(total);
+  document.getElementById("afCountLbl").textContent = rows.length===1 ? "1 gasto fixo" : rows.length+" gastos fixos";
+
+  // Total/pago/pendente — usa settled diretamente, não mexe em paidExcludedMonths nem nos totais da tela principal.
+  const paidWrap=document.getElementById("afPaidWrap");
+  paidWrap.style.display = rows.length ? "" : "none";
+  if(rows.length){
+    document.getElementById("afTotalRow").textContent=money(total);
+    document.getElementById("afPaidRow").textContent=money(paid);
+    document.getElementById("afPendingRow").textContent=money(pending);
+  }
+
+  // Distribuição por categoria — mesmo padrão visual da análise (barra = participação no total, uma cor só).
+  const catWrap=document.getElementById("afCatWrap");
+  const catList=document.getElementById("afCatList");
+  catList.innerHTML="";
+  catWrap.style.display = rows.length ? "" : "none";
+  if(rows.length){
+    for(const r of fixedTotalsByCategory(rows)){
+      const pct = total>0 ? (r.total/total*100) : 0;
+      const row=document.createElement("div"); row.className="anrow";
+      const top=document.createElement("div"); top.className="top";
+      const ic=document.createElement("span"); ic.className="ic"; ic.textContent=r.icon;
+      const nm=document.createElement("span"); nm.className="nm"; nm.textContent=r.name;
+      const vl=document.createElement("span"); vl.className="vl"; vl.textContent=money(r.total);
+      const pc=document.createElement("span"); pc.className="pc"; pc.textContent=pct.toFixed(1).replace(".",",")+"%";
+      top.appendChild(ic); top.appendChild(nm); top.appendChild(vl); top.appendChild(pc);
+      const track=document.createElement("div"); track.className="antrack";
+      const fill=document.createElement("div"); fill.className="anfill";
+      fill.style.width=pct+"%";
+      track.appendChild(fill);
+      row.appendChild(top); row.appendChild(track);
+      catList.appendChild(row);
+    }
+  }
+
+  // Detalhamento — maior valor primeiro.
+  const list=document.getElementById("afList");
+  list.innerHTML="";
+  if(!rows.length){
+    list.innerHTML='<div class="empty">Nenhum gasto fixo neste mês.</div>';
+    return;
+  }
+  for(const t of rows){
+    const row=document.createElement("div"); row.className="afrow";
+    const c=catById(t.categoryId);
+    const ic=document.createElement("span"); ic.className="ic"; ic.textContent = c?c.icon:"🔁";
+    const info=document.createElement("div"); info.className="info";
+    const nm=document.createElement("div"); nm.className="name"; nm.textContent=t.name;
+    info.appendChild(nm);
+    const subTxt=fixedSubtitle(t);
+    if(subTxt){ const sub=document.createElement("div"); sub.className="sub"; sub.textContent=subTxt; info.appendChild(sub); }
+    const right=document.createElement("div"); right.className="right";
+    const val=document.createElement("div"); val.className="val"; val.textContent=money(t.amount);
+    const stat=document.createElement("div"); stat.className="stat "+(t.settled?"paid":"pending"); stat.textContent=t.settled?"Pago":"A pagar";
+    right.appendChild(val); right.appendChild(stat);
+    row.appendChild(ic); row.appendChild(info); row.appendChild(right);
     list.appendChild(row);
   }
 }
@@ -1257,6 +1407,7 @@ function bind(){
   document.getElementById("anPrev").onclick=()=>{ analysisMonth--; renderAnalysis(); };
   document.getElementById("anNext").onclick=()=>{ analysisMonth++; renderAnalysis(); };
   document.querySelectorAll("#anType button").forEach(b=> b.onclick=()=>{ analysisType=b.dataset.v; renderAnalysis(); });
+  document.querySelectorAll("#anView button").forEach(b=> b.onclick=()=>{ analysisView=b.dataset.v; renderAnalysis(); });
   document.getElementById("anClose").onclick=()=>hideOverlay("analysisOverlay");
 
   document.querySelectorAll("#fType button").forEach(b=> b.onclick=()=>setSeg("fType",b.dataset.v));
