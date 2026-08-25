@@ -1,6 +1,6 @@
 // Service worker simples: cache para funcionar offline.
-// v5: Dashboard expandido (pizza de categorias, evolução de gastos/saldo/categorias, maiores gastos).
-const CACHE = "faturamento-v5";
+// v6: novo ícone do app (anel de saldo + cifrão).
+const CACHE = "faturamento-v6";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", (e) => {
