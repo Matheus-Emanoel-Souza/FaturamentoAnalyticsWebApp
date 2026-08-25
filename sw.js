@@ -1,6 +1,6 @@
 // Service worker simples: cache para funcionar offline.
-// v6: novo ícone do app (anel de saldo + cifrão).
-const CACHE = "faturamento-v6";
+// v7: Configurações reorganizada (Categorias/Flags, Importar, Exportar) + padrão oficial de CSV.
+const CACHE = "faturamento-v7";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", (e) => {

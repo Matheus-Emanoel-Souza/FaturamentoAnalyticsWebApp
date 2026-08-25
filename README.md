@@ -36,11 +36,41 @@ A ideia aqui **não é reescrever o projeto**. É evoluir pontualmente, mantendo
 | 📊 **Análise de gastos** | Total do mês com variação contra o anterior, comparativo dos últimos 6 meses e ranking das categorias com valor, percentual e barra. |
 | 💾 **Backup v4** | Formato novo com categorias, flags e preferências. **Continua importando os backups antigos** do app Android. |
 | 🔀 **Importar com segurança** | Mostra um resumo do arquivo **antes de mudar qualquer coisa**, e deixa escolher entre *Mesclar* (não apaga nada) e *Substituir tudo*. |
-| 📄 **Exportar CSV** | Para abrir no Excel ou LibreOffice, já no formato brasileiro. |
+| 📊 **Dashboard** | Pizza de gastos por categoria, evolução de gastos/saldo/categorias e ranking dos maiores gastos do mês, além da análise por categoria e gastos fixos que já existiam. |
+| 📥📤 **CSV de transações** | Padrão único de importação/exportação (ver seção própria abaixo), com arquivo modelo, validação e pré-visualização antes de gravar qualquer coisa. |
+| ⚙️ **Configurações reorganizada** | Categorias/Flags, Importar e Exportar viraram subtelas próprias, pra Configurações não ficar gigante. |
 
 O que **não** mudou: recorrências fixas, parcelamentos, edição por escopo ("somente esta" / "esta e as seguintes"), navegação por mês, temas, modo AMOLED e a instalação como app continuam exatamente como eram.
 
 Quem já usava a versão anterior **não perde nada**: os lançamentos existentes continuam funcionando, apenas ficam sem categoria e sem flags até você definir.
+
+---
+
+## Importação e exportação
+
+Dois formatos, dois propósitos:
+
+- **Backup completo (`.json`)** — restauração total: transações, categorias, flags e preferências. É o único jeito de restaurar tudo, e o formato compatível com o app Android.
+- **Transações (`.csv`)** — só as transações, pra editar em Excel/Numbers/LibreOffice e reimportar depois.
+
+**Padrão oficial do CSV**, sempre nesta ordem de colunas:
+
+```
+valor,descricao,tipo,frequencia,categoria,flags,data,pago,parcela,total_parcelas
+```
+
+| Coluna | Valores aceitos |
+|---|---|
+| `valor` | número com ponto decimal (`1234.56`) |
+| `tipo` | `DESPESA` ou `RECEITA` |
+| `frequencia` | `UNICO`, `FIXO` ou `PARCELADO` |
+| `categoria` | nome da categoria (vazio = sem categoria; nome novo é criado automaticamente) |
+| `flags` | nomes separados por `\|` (ex.: `Trabalho\|Reembolsável`); nome novo é criado automaticamente |
+| `data` | `AAAA-MM-DD` |
+| `pago` | `SIM` ou `NAO` |
+| `parcela` / `total_parcelas` | só quando `frequencia` é `PARCELADO` |
+
+Baixe o **arquivo modelo** na tela Configurações → Importar dados pra ver exemplos prontos. O arquivo que o próprio app exporta sempre pode ser reimportado sem reorganizar nada. Uma ressalva: diferente do backup JSON (que dedupla por identificador único ao mesclar), o CSV **não dedupla** — importar o mesmo arquivo duas vezes duplica as transações.
 
 ---
 

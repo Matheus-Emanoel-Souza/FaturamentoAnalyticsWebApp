@@ -118,6 +118,17 @@
   .infolist .k{ color:var(--muted); }
   .infolist .v{ text-align:right; }
 
+  /* Configurações: linhas de navegação para as subtelas (Categorias/Flags, Importar, Exportar) */
+  .navrow{ width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--surface2); border:none; border-radius:10px; padding:14px; margin-bottom:8px;
+    color:var(--text); font-size:14.5px; font-weight:600; cursor:pointer; text-align:left; }
+  body.amoled .navrow{ background:#0d0d0d; border:1px solid var(--divider); }
+  .navrow .chev{ color:var(--muted); font-size:18px; font-weight:400; }
+  /* Cabeçalho das subtelas: seta de voltar + título, mesmo padrão em todas */
+  .subhead{ display:flex; align-items:center; gap:2px; margin:0 0 14px; }
+  .subhead button{ background:none; border:none; color:var(--text); font-size:22px; padding:6px 8px 6px 0; cursor:pointer; line-height:1; }
+  .subhead h3{ margin:0; flex:1; }
+
   /* Analise por categoria */
   .anhead{ display:flex; align-items:center; justify-content:center; gap:14px; margin:2px 0 12px; }
   .anhead button{ background:none; border:none; color:var(--text); font-size:22px; padding:2px 8px; cursor:pointer; }
@@ -282,7 +293,7 @@
   <div class="sheet">
     <h3>Configurações</h3>
 
-    <div class="seclabel">Aparência</div>
+    <div class="seclabel">🎨 Aparência</div>
     <label>Tema</label>
     <div class="seg" id="sTheme">
       <button data-v="light">Claro</button>
@@ -302,27 +313,10 @@
     </div>
     <div class="row-between"><span>Ordem crescente</span><div class="switch" id="sSortAsc"><div class="knob"></div></div></div>
 
-    <div class="seclabel">Categorias</div>
-    <div class="manage" id="sCategories"></div>
-    <button class="addbtn" id="catAdd">+ Nova categoria</button>
-
-    <div class="seclabel">Flags</div>
-    <div class="manage" id="sFlags"></div>
-    <button class="addbtn" id="flagAdd">+ Nova flag</button>
-
-    <div class="seclabel">Backup</div>
-    <div class="actions">
-      <button class="btn-ghost" id="bExport">Backup completo</button>
-      <button class="btn-ghost" id="bImport">Importar</button>
-    </div>
-    <input type="file" id="importFile" accept="application/json,.json" style="display:none" />
-    <div class="hint">Backup completo em JSON (versão 4): transações, categorias, flags e preferências. Também importa backups antigos (versão 3) do app Android.</div>
-
-    <div class="seclabel">Exportar dados</div>
-    <div class="actions">
-      <button class="btn-ghost" id="bExportCsv">Exportar CSV</button>
-    </div>
-    <div class="hint">Planilha CSV (separador “;”) para abrir no Excel / LibreOffice.</div>
+    <div class="seclabel">Dados</div>
+    <button class="navrow" id="navCatFlags">🏷️ Categorias e Flags<span class="chev">›</span></button>
+    <button class="navrow" id="navImport">📥 Importar dados<span class="chev">›</span></button>
+    <button class="navrow" id="navExport">📤 Exportar dados<span class="chev">›</span></button>
 
     <div class="seclabel">App</div>
     <div class="actions">
@@ -332,6 +326,65 @@
     <div class="actions" style="margin-top:22px">
       <button class="btn-primary" id="settingsClose">Fechar</button>
     </div>
+  </div>
+</div>
+
+<!-- Modal: Categorias e Flags (subtela de Configurações) -->
+<div class="overlay" id="catFlagsOverlay">
+  <div class="sheet">
+    <div class="subhead"><button id="cfBack">←</button><h3>Categorias e Flags</h3></div>
+
+    <div class="seclabel">Categorias</div>
+    <div class="manage" id="sCategories"></div>
+    <button class="addbtn" id="catAdd">+ Nova categoria</button>
+
+    <div class="seclabel">Flags</div>
+    <div class="manage" id="sFlags"></div>
+    <button class="addbtn" id="flagAdd">+ Nova flag</button>
+  </div>
+</div>
+
+<!-- Modal: Importar dados (subtela de Configurações) -->
+<div class="overlay" id="importDataOverlay">
+  <div class="sheet">
+    <div class="subhead"><button id="importBack">←</button><h3>Importar dados</h3></div>
+
+    <div class="seclabel">📦 Backup completo</div>
+    <div class="actions">
+      <button class="btn-ghost" id="bImport">Importar backup (.json)</button>
+    </div>
+    <input type="file" id="importFile" accept="application/json,.json" style="display:none" />
+    <div class="hint">Restaura tudo: transações, categorias, flags e preferências. Também importa backups antigos (versão 3) do app Android.</div>
+
+    <div class="seclabel">📊 Transações (CSV)</div>
+    <div class="hint">Formato esperado (nesta ordem):</div>
+    <div class="infolist" id="csvFormatInfo" style="margin-top:6px"></div>
+    <div class="hint">Tipo: <b>DESPESA</b>/<b>RECEITA</b> · Frequência: <b>UNICO</b>/<b>FIXO</b>/<b>PARCELADO</b> · Pago: <b>SIM</b>/<b>NAO</b> · Data: <b>AAAA-MM-DD</b> · várias flags separadas por “<b>|</b>”. Categoria/flag que não existir é criada automaticamente.</div>
+    <div class="hint">Cada linha vira uma transação — para recorrências fixas e parcelamentos, inclua uma linha por ocorrência (é isso que a exportação sempre gera). Importar o mesmo arquivo duas vezes duplica os dados: o CSV não usa o mesmo identificador único do backup JSON.</div>
+    <div class="actions">
+      <button class="btn-ghost" id="bCsvTemplate">Baixar arquivo modelo</button>
+      <button class="btn-primary" id="bCsvSelect">Selecionar CSV</button>
+    </div>
+    <input type="file" id="csvImportFile" accept=".csv,text/csv" style="display:none" />
+  </div>
+</div>
+
+<!-- Modal: Exportar dados (subtela de Configurações) -->
+<div class="overlay" id="exportDataOverlay">
+  <div class="sheet">
+    <div class="subhead"><button id="exportBack">←</button><h3>Exportar dados</h3></div>
+
+    <div class="seclabel">📦 Backup completo (.json)</div>
+    <div class="actions">
+      <button class="btn-ghost" id="bExport">Exportar backup</button>
+    </div>
+    <div class="hint">Backup completo em JSON (versão 4): transações, categorias, flags e preferências. Use para restaurar tudo ou levar pro app Android.</div>
+
+    <div class="seclabel">📊 Transações (.csv)</div>
+    <div class="actions">
+      <button class="btn-ghost" id="bExportCsv">Exportar CSV</button>
+    </div>
+    <div class="hint">Planilha para Excel / Numbers / LibreOffice, no mesmo padrão aceito na importação.</div>
   </div>
 </div>
 
@@ -465,6 +518,18 @@
   </div>
 </div>
 
+<!-- Modal: pré-visualização da importação de CSV (transações) -->
+<div class="overlay" id="csvPreviewOverlay">
+  <div class="sheet">
+    <h3>Importar CSV</h3>
+    <div id="csvPreviewBody"></div>
+    <div class="actions" style="flex-direction:column">
+      <button class="btn-primary" id="csvImportBtn">Importar</button>
+      <button class="btn-ghost" id="csvImportCancel">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 "use strict";
 
@@ -516,6 +581,7 @@ let currentMonth = nowMonthIndex();
 let editing = null;   // tx sendo editado (ou null = novo)
 let pendingScope = null; // {kind:'edit'|'delete', data}
 let pendingImport = null; // backup v4 normalizado, aguardando confirmação do usuário
+let pendingCsvImport = null; // linhas de CSV já validadas, aguardando confirmação do usuário
 let itemEditing = null;   // {kind:'category'|'flag', id:string|null}
 let editorFlags = [];     // flags selecionadas no modal de edição
 let analysisMonth = null; // mês em foco na análise (independe do mês da lista)
@@ -1028,9 +1094,20 @@ function openSettings(){
   setSwitch("sCompact",state.prefs.compact);
   setSeg("sSortField",state.prefs.sortField);
   setSwitch("sSortAsc",state.prefs.sortAscending);
+  showOverlay("settingsOverlay");
+}
+
+// Subtela: Categorias e Flags
+function openCatFlags(){
   renderManageList("category");
   renderManageList("flag");
-  showOverlay("settingsOverlay");
+  showOverlay("catFlagsOverlay");
+}
+
+// Subtela: Importar dados
+function openImportData(){
+  renderCsvFormatInfo();
+  showOverlay("importDataOverlay");
 }
 
 // ---------- Análise por categoria ----------
@@ -1569,30 +1646,263 @@ function exportBackup(){
   shareOrDownload("faturamento-backup.json","application/json",JSON.stringify(buildBackup(),null,2));
 }
 
-// ---------- Exportação CSV (uso externo: Excel / LibreOffice pt-BR) ----------
-function csvCell(v){
-  v = String(v==null?"":v);
-  return /[";\r\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v;
+// ---------- CSV de transações: padrão único de importação/exportação ----------
+// Ordem oficial das colunas — centralizada aqui pra exportador, importador, arquivo
+// modelo e o bloco "Formato esperado" da tela de importação nunca divergirem (seção 5).
+const CSV_COLUMNS = ["valor","descricao","tipo","frequencia","categoria","flags","data","pago","parcela","total_parcelas"];
+const CSV_COLUMN_LABELS = { valor:"Valor", descricao:"Descrição", tipo:"Tipo", frequencia:"Frequência",
+  categoria:"Categoria", flags:"Flags", data:"Data", pago:"Pago", parcela:"Parcela", total_parcelas:"Total de parcelas" };
+// Vocabulário público do CSV <-> valores internos do app (o app nunca muda; só a tradução na borda).
+const CSV_TYPE_OUT = { EXPENSE:"DESPESA", INCOME:"RECEITA" };
+const CSV_TYPE_IN  = { DESPESA:"EXPENSE", RECEITA:"INCOME" };
+const CSV_REC_OUT  = { NONE:"UNICO", FIXED:"FIXO", INSTALLMENT:"PARCELADO" };
+const CSV_REC_IN   = { UNICO:"NONE", FIXO:"FIXED", PARCELADO:"INSTALLMENT" };
+
+function isoDate(mi, day){ const {year,month}=ymOf(mi); const d=Math.min(day, daysInMonth(year,month)); return year+"-"+pad2(month)+"-"+pad2(d); }
+function parseIsoDate(s){
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s||"").trim());
+  if(!m) return null;
+  const y=+m[1], mo=+m[2], d=+m[3];
+  if(mo<1||mo>12||d<1||d>daysInMonth(y,mo)) return null;
+  return { monthIndex:y*12+(mo-1), dayOfMonth:d };
 }
-function exportCSV(){
-  const rows=[["data","descricao","tipo","categoria","valor","pago","flags"]];
+// trim + minúsculas + sem acento — usado pra casar "pago" e nomes de flag ignorando caixa/acento.
+function normLoose(s){ return String(s||"").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
+
+// Parser CSV pequeno e correto (RFC4180-ish): aspas, vírgula/quebra de linha dentro de
+// campo entre aspas, aspas escapadas (""), CRLF/LF. Não usar String.split(",").
+function parseCSVText(text){
+  const rows=[]; let row=[], field="", inQuotes=false;
+  const s=String(text||"").replace(/\r\n/g,"\n").replace(/\r/g,"\n");
+  for(let i=0;i<s.length;i++){
+    const c=s[i];
+    if(inQuotes){
+      if(c==='"'){ if(s[i+1]==='"'){ field+='"'; i++; } else inQuotes=false; }
+      else field+=c;
+    } else if(c==='"'){ inQuotes=true; }
+    else if(c===','){ row.push(field); field=""; }
+    else if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=""; }
+    else field+=c;
+  }
+  if(field!=="" || row.length){ row.push(field); rows.push(row); }
+  return rows.filter(r=> !(r.length===1 && r[0].trim()===""));  // ignora linhas em branco
+}
+function csvField(v){
+  v=String(v==null?"":v);
+  return /[",\n\r]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v;
+}
+function csvRow(fields){ return fields.map(csvField).join(","); }
+
+// ---- Exportação ----
+function txToCsvRow(t){
+  const c=catById(t.categoryId);
+  const flagsStr=(t.flags||[]).map(id=>{ const f=flagById(id); return f?f.name:null; }).filter(Boolean).join("|");
+  const isInst = t.recurrence==="INSTALLMENT";
+  return [
+    Number(t.amount||0).toFixed(2),
+    t.name,
+    CSV_TYPE_OUT[t.type] || "DESPESA",
+    CSV_REC_OUT[t.recurrence] || "UNICO",
+    c?c.name:"",
+    flagsStr,
+    isoDate(t.monthIndex, t.dayOfMonth),
+    t.settled ? "SIM" : "NAO",
+    isInst && t.installmentNumber!=null ? String(t.installmentNumber) : "",
+    isInst && t.installmentTotal!=null ? String(t.installmentTotal) : ""
+  ];
+}
+function buildTransactionsCSV(){
   const sorted=state.transactions.slice().sort((a,b)=>
     (a.monthIndex-b.monthIndex) || (a.dayOfMonth-b.dayOfMonth) || (a.id-b.id));
-  for(const t of sorted){
-    const c=catById(t.categoryId);
-    rows.push([
-      formatDate(t.monthIndex,t.dayOfMonth),
-      t.name,
-      t.type==="INCOME"?"Entrada":"Saída",
-      c?c.name:"",
-      Number(t.amount||0).toFixed(2).replace(".",","),   // decimal pt-BR
-      t.settled?"Sim":"Não",
-      (t.flags||[]).map(id=>{ const f=flagById(id); return f?f.name:id; }).join(", ")
-    ]);
-  }
-  const csv=rows.map(r=>r.map(csvCell).join(";")).join("\r\n");
+  const lines=[csvRow(CSV_COLUMNS)];
+  for(const t of sorted) lines.push(csvRow(txToCsvRow(t)));
+  return lines.join("\r\n");
+}
+function exportTransactionsCSV(){
   const stamp=new Date().toISOString().slice(0,10);
-  shareOrDownload("faturamento-"+stamp+".csv","text/csv;charset=utf-8","\ufeff"+csv);  // BOM p/ Excel
+  shareOrDownload("faturamento-transacoes-"+stamp+".csv","text/csv;charset=utf-8","\ufeff"+buildTransactionsCSV());
+}
+function downloadCsvTemplate(){
+  // exemplos já no vocabulário público (DESPESA/FIXO/SIM...), igual ao aceito na importação.
+  const sample=[
+    ["55.90","Netflix","DESPESA","FIXO","Lazer","Assinatura","2026-08-10","NAO","",""],
+    ["250.00","Supermercado","DESPESA","UNICO","Alimentação","","2026-08-12","SIM","",""],
+    ["300.00","Notebook","DESPESA","PARCELADO","Compras","","2026-08-10","NAO","3","12"]
+  ];
+  const lines=[csvRow(CSV_COLUMNS)].concat(sample.map(csvRow));
+  shareOrDownload("faturamento-modelo.csv","text/csv;charset=utf-8","\ufeff"+lines.join("\r\n"));
+}
+function renderCsvFormatInfo(){
+  const el=document.getElementById("csvFormatInfo");
+  el.innerHTML = CSV_COLUMNS.map((c,i)=>
+    '<div class="row"><span class="k">'+(i+1)+'. '+CSV_COLUMN_LABELS[c]+'</span></div>').join("");
+}
+
+// ---- Validação + parsing (nada no state muda antes da confirmação) ----
+// Cada linha do CSV é sempre uma ocorrência já materializada (mesmo espírito do backup
+// JSON): a importação nunca chama addNew()/gera 36 meses sozinha, só grava exatamente
+// as linhas do arquivo. Ver commitCsvImport() sobre o agrupamento de série (FIXO/PARCELADO).
+function validateAndParseCsv(text){
+  const rows=parseCSVText(text);
+  if(!rows.length) return { headerError:true };
+  const header=rows[0].map(h=>String(h||"").trim().toLowerCase());
+  const headerOk = header.length===CSV_COLUMNS.length && CSV_COLUMNS.every((c,i)=>header[i]===c);
+  if(!headerOk) return { headerError:true };
+
+  const errors=[], parsed=[];
+  rows.slice(1).forEach((cols, idx)=>{
+    const line=idx+2; // linha 1 é o cabeçalho
+    const [valorS, descricao, tipoS, freqS, categoria, flagsS, dataS, pagoS, parcelaS, totalS]=cols;
+
+    const amount=parseFloat(String(valorS||"").trim().replace(",","."));
+    if(!isFinite(amount) || amount<=0){ errors.push({line, message:"valor inválido: "+valorS}); return; }
+
+    const name=String(descricao||"").trim();
+    if(!name){ errors.push({line, message:"descricao vazia"}); return; }
+
+    const type=CSV_TYPE_IN[String(tipoS||"").trim().toUpperCase()];
+    if(!type){ errors.push({line, message:"tipo inválido: "+tipoS}); return; }
+
+    const recurrence=CSV_REC_IN[String(freqS||"").trim().toUpperCase()];
+    if(!recurrence){ errors.push({line, message:"frequencia inválida: "+freqS}); return; }
+
+    const dt=parseIsoDate(dataS);
+    if(!dt){ errors.push({line, message:"data inválida: "+dataS}); return; }
+
+    const pagoKey=normLoose(pagoS);
+    let settled;
+    if(pagoKey==="sim") settled=true;
+    else if(pagoKey==="nao") settled=false;
+    else { errors.push({line, message:"pago inválido: "+pagoS}); return; }
+
+    let installmentNumber=null, installmentTotal=null;
+    if(recurrence==="INSTALLMENT"){
+      const p=parseInt(parcelaS,10), tt=parseInt(totalS,10);
+      if(!Number.isInteger(p) || p<1){ errors.push({line, message:"parcela inválida: "+parcelaS}); return; }
+      if(!Number.isInteger(tt) || tt<2 || p>tt){ errors.push({line, message:"total_parcelas inválido: "+totalS}); return; }
+      installmentNumber=p; installmentTotal=tt;
+    }
+
+    parsed.push({ line, amount, name, type, recurrence,
+      categoriaNome:String(categoria||"").trim(),
+      flagsNomes: String(flagsS||"").split("|").map(s=>s.trim()).filter(Boolean),
+      monthIndex:dt.monthIndex, dayOfMonth:dt.dayOfMonth, settled, installmentNumber, installmentTotal });
+  });
+
+  return { errors, parsed };
+}
+
+// Categoria: casa pelo nome exato (trim). Não existindo, cria com ícone neutro (📦).
+function resolveCategoryByName(name, cache){
+  if(!name) return null;
+  if(cache.has(name)) return cache.get(name);
+  let cat=state.categories.find(c=>c.name===name);
+  if(!cat){ cat={ id:makeSlugId(name, state.categories), name, icon:"📦" }; state.categories.push(cat); }
+  cache.set(name, cat.id);
+  return cat.id;
+}
+// Flag: casa ignorando caixa/acento (Assinatura ~ assinatura ~ ASSINATURA), preservando
+// o nome já cadastrado. Não existindo, cria com o texto do CSV e ícone neutro (⚪).
+function resolveFlagByName(name, cache){
+  const key=normLoose(name);
+  if(cache.has(key)) return cache.get(key);
+  let flag=state.flagsConfig.find(f=>normLoose(f.name)===key);
+  if(!flag){ flag={ id:makeSlugId(name, state.flagsConfig), name, icon:"⚪" }; state.flagsConfig.push(flag); }
+  cache.set(key, flag.id);
+  return flag.id;
+}
+
+// Agrupa linhas FIXO/PARCELADO que pertencem à mesma série (mesmo nome+valor+categoria,
+// e também total_parcelas no caso de PARCELADO) sob um único seriesId novo. Essencial pra
+// FIXO: sem isso, cada linha materializada viraria sua própria série e ensureCoverage()
+// multiplicaria os meses futuros uma vez por linha. pushTx() nunca é chamado via addNew().
+function commitCsvImport(parsedRows){
+  const catCache=new Map(), flagCache=new Map();
+  const fixedGroups=new Map(), instGroups=new Map();
+  let added=0;
+  for(const r of parsedRows){
+    const categoryId=resolveCategoryByName(r.categoriaNome, catCache);
+    const flags=r.flagsNomes.map(n=>resolveFlagByName(n, flagCache));
+
+    let seriesId=null;
+    if(r.recurrence==="FIXED"){
+      const key=r.name+"|"+r.amount.toFixed(2)+"|"+(categoryId||"");
+      if(!fixedGroups.has(key)) fixedGroups.set(key, uuid());
+      seriesId=fixedGroups.get(key);
+    } else if(r.recurrence==="INSTALLMENT"){
+      const key=r.name+"|"+r.amount.toFixed(2)+"|"+(categoryId||"")+"|"+r.installmentTotal;
+      if(!instGroups.has(key)) instGroups.set(key, uuid());
+      seriesId=instGroups.get(key);
+    }
+
+    pushTx({ name:r.name, amount:r.amount, type:r.type, monthIndex:r.monthIndex, dayOfMonth:r.dayOfMonth,
+      recurrence:r.recurrence, seriesId, categoryId, flags, settled:r.settled,
+      installmentNumber:r.installmentNumber, installmentTotal:r.installmentTotal });
+    added++;
+  }
+  return added;
+}
+
+// ---- Fluxo de UI: selecionar arquivo -> validar -> pré-visualizar -> confirmar ----
+function handleCsvFile(text){
+  const result=validateAndParseCsv(text);
+  renderCsvPreview(result);
+  showOverlay("csvPreviewOverlay");
+}
+function renderCsvPreview(result){
+  const body=document.getElementById("csvPreviewBody");
+  const importBtn=document.getElementById("csvImportBtn");
+  pendingCsvImport=null;
+  importBtn.style.display="none";
+
+  if(result.headerError){
+    body.innerHTML =
+      '<div class="hint">Não foi possível importar o arquivo.<br>O cabeçalho esperado é:</div>'+
+      '<div class="infolist" style="margin-top:8px">'+
+      CSV_COLUMNS.map(c=>'<div class="row"><span class="k">'+c+'</span></div>').join("")+
+      '</div>';
+    return;
+  }
+  if(result.errors.length){
+    body.innerHTML =
+      '<div class="hint">'+result.errors.length+' erro(s) encontrado(s). Corrija o arquivo e selecione novamente.</div>'+
+      '<div class="infolist" style="margin-top:8px">'+
+      result.errors.slice(0,30).map(e=>'<div class="row"><span class="k">Linha '+e.line+'</span><span class="v">'+e.message+'</span></div>').join("")+
+      (result.errors.length>30 ? '<div class="row"><span class="k">…</span><span class="v">+'+(result.errors.length-30)+' erro(s)</span></div>' : '')+
+      '</div>';
+    return;
+  }
+
+  const rows=result.parsed;
+  let exp=0, inc=0, fixed=0, inst=0, none=0, minM=null, maxM=null;
+  for(const r of rows){
+    if(r.type==="EXPENSE") exp++; else inc++;
+    if(r.recurrence==="FIXED") fixed++; else if(r.recurrence==="INSTALLMENT") inst++; else none++;
+    if(minM===null || r.monthIndex<minM) minM=r.monthIndex;
+    if(maxM===null || r.monthIndex>maxM) maxM=r.monthIndex;
+  }
+  const periodo = rows.length ? (minM===maxM ? monthLabel(minM) : monthLabel(minM)+" → "+monthLabel(maxM)) : "—";
+  const info=[
+    ["Arquivo válido", rows.length+" transação(ões) encontrada(s)"],
+    ["Despesas", String(exp)], ["Receitas", String(inc)],
+    ["Fixas", String(fixed)], ["Parceladas", String(inst)], ["Únicas", String(none)],
+    ["Período", periodo]
+  ];
+  body.innerHTML = '<div class="infolist">'+
+    info.map(kv=>'<div class="row"><span class="k">'+kv[0]+'</span><span class="v">'+kv[1]+'</span></div>').join("")+
+    '</div>';
+  pendingCsvImport=rows;
+  importBtn.style.display = rows.length ? "" : "none";
+}
+function confirmCsvImport(){
+  if(!pendingCsvImport) return;
+  const added=commitCsvImport(pendingCsvImport);
+  pendingCsvImport=null;
+  normalizeState(); save();
+  hideOverlay("csvPreviewOverlay");
+  renderManageList("category"); renderManageList("flag");
+  render();
+  alert("Importação concluída: "+added+" transação(ões) adicionada(s).");
 }
 
 // ---------- Leitura / migração de backups ----------
@@ -1767,8 +2077,16 @@ function bind(){
   document.getElementById("sSortAsc").onclick=()=>{ state.prefs.sortAscending=!state.prefs.sortAscending; save(); setSwitch("sSortAsc",state.prefs.sortAscending); render(); };
   document.getElementById("settingsClose").onclick=()=>hideOverlay("settingsOverlay");
 
+  // Configurações -> subtelas (Categorias e Flags / Importar dados / Exportar dados)
+  document.getElementById("navCatFlags").onclick=()=>{ hideOverlay("settingsOverlay"); openCatFlags(); };
+  document.getElementById("cfBack").onclick=()=>{ hideOverlay("catFlagsOverlay"); showOverlay("settingsOverlay"); };
+  document.getElementById("navImport").onclick=()=>{ hideOverlay("settingsOverlay"); openImportData(); };
+  document.getElementById("importBack").onclick=()=>{ hideOverlay("importDataOverlay"); showOverlay("settingsOverlay"); };
+  document.getElementById("navExport").onclick=()=>{ hideOverlay("settingsOverlay"); showOverlay("exportDataOverlay"); };
+  document.getElementById("exportBack").onclick=()=>{ hideOverlay("exportDataOverlay"); showOverlay("settingsOverlay"); };
+
   document.getElementById("bExport").onclick=exportBackup;
-  document.getElementById("bExportCsv").onclick=exportCSV;
+  document.getElementById("bExportCsv").onclick=exportTransactionsCSV;
   document.getElementById("bImport").onclick=()=>document.getElementById("importFile").click();
   document.getElementById("importFile").onchange=(e)=>{
     const f=e.target.files[0]; if(!f) return;
@@ -1777,6 +2095,16 @@ function bind(){
   document.getElementById("impMerge").onclick=()=>applyImport("MERGE");
   document.getElementById("impReplace").onclick=()=>applyImport("REPLACE");
   document.getElementById("impCancel").onclick=()=>{ pendingImport=null; hideOverlay("importOverlay"); };
+
+  // Importação/exportação de transações em CSV
+  document.getElementById("bCsvTemplate").onclick=downloadCsvTemplate;
+  document.getElementById("bCsvSelect").onclick=()=>document.getElementById("csvImportFile").click();
+  document.getElementById("csvImportFile").onchange=(e)=>{
+    const f=e.target.files[0]; if(!f) return;
+    const r=new FileReader(); r.onload=()=>handleCsvFile(r.result); r.readAsText(f); e.target.value="";
+  };
+  document.getElementById("csvImportBtn").onclick=confirmCsvImport;
+  document.getElementById("csvImportCancel").onclick=()=>{ pendingCsvImport=null; hideOverlay("csvPreviewOverlay"); };
 
   document.getElementById("catAdd").onclick=()=>openItemEditor("category",null);
   document.getElementById("flagAdd").onclick=()=>openItemEditor("flag",null);

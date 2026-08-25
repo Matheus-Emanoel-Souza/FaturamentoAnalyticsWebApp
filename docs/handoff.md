@@ -48,7 +48,7 @@ forma de verificar uma mudança é abrir no navegador e testar manualmente.
 ```
 FaturamentoAnalyticsWebApp/
 ├── index.html              # o app inteiro (~1.345 linhas): markup + CSS + JS
-├── sw.js                   # service worker (cache "faturamento-v5")
+├── sw.js                   # service worker (cache "faturamento-v7")
 ├── manifest.webmanifest    # metadados PWA
 ├── icon.svg                # ícone do app
 ├── README.md                # apresentação pública / pitch do fork
@@ -93,7 +93,7 @@ dados" e "Conceitos centrais").
 
 | Regra | Por quê |
 |---|---|
-| Bumpar a versão do cache em `sw.js` (hoje `faturamento-v5`) sempre que mudar `sw.js` ou os assets | Senão o navegador continua servindo a versão antiga em cache |
+| Bumpar a versão do cache em `sw.js` (hoje `faturamento-v7`) sempre que mudar `sw.js` ou os assets | Senão o navegador continua servindo a versão antiga em cache |
 | Manter `ACCENTS` e o schema de backup em sincronia com o app Android | É o contrato de interoperabilidade entre os dois apps |
 | `DEFAULT_CATEGORIES` / `DEFAULT_FLAGS` só populam quando a chave **não existe** | Array vazio é uma escolha do usuário (apagou tudo), não deve ser repovoado |
 | Excluir categoria/flag nunca exclui transações | Só desvincula (`categoryId = null` / remove da lista `flags`) |
