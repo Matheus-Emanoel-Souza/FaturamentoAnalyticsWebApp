@@ -12,19 +12,19 @@
 <style>
   :root{
     --accent:#7CB342;
-    --bg:#121212; --surface:#1e1e1e; --surface2:#2a2a2a;
+    --bg:#121212; --surface:#1e1e1e; --surface2:#2a2a2a; --sheetbg:#1e1e1e;
     --text:#ececec; --muted:#9e9e9e; --divider:rgba(255,255,255,.10);
     --income:#81C784; --expense:#E57373;
     --deemph:#4a4a4a; --track:#2a2a2a;
     --row-pad:14px;
   }
   body.light{
-    --bg:#f5f5f5; --surface:#ffffff; --surface2:#eeeeee;
+    --bg:#f5f5f5; --surface:#ffffff; --surface2:#eeeeee; --sheetbg:#ffffff;
     --text:#1c1b1f; --muted:#666; --divider:rgba(0,0,0,.10);
     --income:#2E7D32; --expense:#C62828;
     --deemph:#cfcfcf; --track:#e4e4e4;
   }
-  body.amoled{ --bg:#000000; --surface:#000000; --surface2:#0a0a0a; --divider:rgba(255,255,255,.18); --track:#161616; }
+  body.amoled{ --bg:#000000; --surface:#000000; --surface2:#0a0a0a; --sheetbg:#0d0d0d; --divider:rgba(255,255,255,.18); --track:#161616; }
   body.compact{ --row-pad:8px; }
 
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -75,9 +75,8 @@
   /* Modais */
   .overlay{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:flex-end; justify-content:center; z-index:10; }
   .overlay.show{ display:flex; }
-  .sheet{ background:var(--surface); color:var(--text); width:100%; max-width:560px; border-radius:18px 18px 0 0;
+  .sheet{ background:var(--sheetbg); color:var(--text); width:100%; max-width:560px; border-radius:18px 18px 0 0;
     padding:18px 18px calc(18px + env(safe-area-inset-bottom)); max-height:92vh; overflow:auto; }
-  body.amoled .sheet{ background:#0d0d0d; }
   .sheet h3{ margin:0 0 14px; }
   label{ display:block; font-size:13px; color:var(--muted); margin:12px 0 4px; }
   input[type=text],input[type=number],input[type=date],select{
@@ -164,6 +163,21 @@
   body.compact .afrow{ padding:7px 10px; }
   body.compact .afrow .name{ font-size:13px; }
 
+  /* Dashboard: novos gráficos (reaproveitam .seclabel/.anhero/.anlist/.anrow/.andelta já existentes) */
+  .pie-wrap{ display:flex; justify-content:center; margin:14px 0 10px; }
+  .pie-svg{ width:150px; height:150px; display:block; }
+  .pie-svg path, .pie-svg circle{ cursor:pointer; transition:opacity .15s; }
+  .pie-svg .dim{ opacity:.4; }
+  .anrow .dot{ width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .anrow.tap{ cursor:pointer; }
+  .linewrap{ margin:10px 2px 2px; }
+  .linesvg{ width:100%; height:auto; display:block; }
+  .lineline{ fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .linedot{ stroke:var(--sheetbg); stroke-width:2; cursor:pointer; }
+  .linezero{ stroke:var(--divider); stroke-width:1; }
+  .linelbls{ display:flex; justify-content:space-between; gap:4px; margin:6px 2px 4px; }
+  .linelbls span{ flex:1; text-align:center; font-size:10.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
   .install{ position:fixed; left:12px; right:12px; bottom:calc(90px + env(safe-area-inset-bottom));
     max-width:536px; margin:0 auto; background:var(--surface2); border:1px solid var(--divider);
     border-radius:14px; padding:12px 14px; display:none; align-items:center; gap:10px; z-index:9;
@@ -179,7 +193,7 @@
   <header>
     <button class="paidbtn" id="paidBtn" title="Descontar pagos do saldo (este mês)">R$</button>
     <div class="title">Faturamento</div>
-    <button class="iconbtn" id="analysisBtn" title="Análise por categoria">📊</button>
+    <button class="iconbtn" id="analysisBtn" title="Dashboard">📊</button>
     <button class="iconbtn" id="settingsBtn" title="Configurações">⚙️</button>
   </header>
 
@@ -339,18 +353,59 @@
 <!-- Modal: análise -->
 <div class="overlay" id="analysisOverlay">
   <div class="sheet">
-    <h3>Análise</h3>
+    <h3>Dashboard</h3>
     <div class="anhead">
       <button id="anPrev">‹</button>
       <div class="label" id="anMonthLabel">—</div>
       <button id="anNext">›</button>
     </div>
     <div class="seg" id="anView">
-      <button data-v="CATEGORY" class="sel">Por categoria</button>
+      <button data-v="DASHBOARD" class="sel">Dashboard</button>
+      <button data-v="CATEGORY">Por categoria</button>
       <button data-v="FIXED">Gastos fixos</button>
     </div>
 
-    <div id="anCategoryView">
+    <div id="anDashboardView">
+      <div class="summary" id="dashSummary" style="margin:14px 2px 10px">
+        <div class="row"><span class="lbl">Receitas</span><span class="green" id="dashSumIn">R$ 0,00</span></div>
+        <div class="row"><span class="lbl">Gastos</span><span class="red" id="dashSumOut">R$ 0,00</span></div>
+        <div class="row"><span class="lbl">Saldo</span><span id="dashSumBal">R$ 0,00</span></div>
+      </div>
+
+      <div class="seclabel">🍕 Gastos por categoria</div>
+      <div class="anhero">
+        <div class="v red" id="dashPieTotal">R$ 0,00</div>
+        <div class="k">total gasto no mês</div>
+      </div>
+      <div id="dashPieWrap"></div>
+      <div class="anlist" id="dashPieList"></div>
+
+      <div class="seclabel">📈 Evolução dos gastos</div>
+      <div class="seg" id="dashExpPeriod">
+        <button data-v="3">3M</button>
+        <button data-v="6" class="sel">6M</button>
+        <button data-v="12">12M</button>
+      </div>
+      <div class="linewrap" id="dashExpChart"></div>
+      <div class="linelbls" id="dashExpLbls"></div>
+
+      <div class="seclabel">🏆 Maiores gastos do mês</div>
+      <div class="anlist" id="dashTopList"></div>
+
+      <div class="seclabel">💰 Evolução do saldo</div>
+      <div class="linewrap" id="dashBalChart"></div>
+      <div class="linelbls" id="dashBalLbls"></div>
+
+      <div class="seclabel">📊 Evolução das categorias</div>
+      <label>Categoria</label>
+      <select id="dashCatSelect"></select>
+      <div class="andelta" id="dashCatDelta"></div>
+      <div class="linewrap" id="dashCatChart"></div>
+      <div class="linelbls" id="dashCatLbls"></div>
+      <div class="anlist" id="dashCatRank" style="margin-top:10px"></div>
+    </div>
+
+    <div id="anCategoryView" style="display:none">
       <div class="seg" id="anType" style="margin-top:10px">
         <button data-v="EXPENSE" class="sel">Saídas</button>
         <button data-v="INCOME">Entradas</button>
@@ -465,7 +520,9 @@ let itemEditing = null;   // {kind:'category'|'flag', id:string|null}
 let editorFlags = [];     // flags selecionadas no modal de edição
 let analysisMonth = null; // mês em foco na análise (independe do mês da lista)
 let analysisType = "EXPENSE";
-let analysisView = "CATEGORY"; // "CATEGORY" (análise por categoria) | "FIXED" (gastos fixos)
+let analysisView = "DASHBOARD"; // "DASHBOARD" (novo painel) | "CATEGORY" (análise por categoria) | "FIXED" (gastos fixos)
+let dashExpPeriod = 6;   // período do gráfico "Evolução dos gastos": 3, 6 ou 12 meses
+let dashSelectedCategoryId; // categoria em foco em "Evolução das categorias" (undefined = ainda não escolhida)
 // ---------- Utilidades ----------
 // --- Animação dos Números (Contador) ---
 function animateMoney(el, endValue) {
@@ -1018,9 +1075,11 @@ function renderAnalysis(){
   ensureCoverage(analysisMonth+1);   // séries fixas cobrem o mês consultado
   document.getElementById("anMonthLabel").textContent=monthLabel(analysisMonth);
   setSeg("anView", analysisView);
-  document.getElementById("anCategoryView").style.display = analysisView==="FIXED" ? "none" : "";
+  document.getElementById("anDashboardView").style.display = analysisView==="DASHBOARD" ? "" : "none";
+  document.getElementById("anCategoryView").style.display = analysisView==="CATEGORY" ? "" : "none";
   document.getElementById("anFixedView").style.display = analysisView==="FIXED" ? "" : "none";
-  if(analysisView==="FIXED") renderFixedExpenses();
+  if(analysisView==="DASHBOARD") renderDashboard();
+  else if(analysisView==="FIXED") renderFixedExpenses();
   else renderCategoryAnalysis();
 }
 
@@ -1189,6 +1248,282 @@ function renderFixedExpenses(){
     right.appendChild(val); right.appendChild(stat);
     row.appendChild(ic); row.appendChild(info); row.appendChild(right);
     list.appendChild(row);
+  }
+}
+
+// ---------- Dashboard: gráficos adicionais ----------
+// Todos calculados dinamicamente a partir de transactions — nada é persistido no state.
+
+// Despesas do mês, já aplicando a mesma regra de "descontar pagos" do resumo principal.
+function expensesForMonth(mi){
+  return state.transactions.filter(t=>countsInAnalysis(t,mi,"EXPENSE"));
+}
+// Saldo do mês: mesma fórmula e mesma regra de exclusão da tela principal (render()),
+// reaproveitando monthTotal()/countsInAnalysis() em vez de duplicar a regra de negócio.
+function monthBalance(mi){ return monthTotal(mi,"INCOME") - monthTotal(mi,"EXPENSE"); }
+
+// Total de uma única categoria num mês (categoryId=null → "Sem categoria").
+function categoryMonthTotal(mi, categoryId){
+  let s=0;
+  for(const t of state.transactions){
+    if(!countsInAnalysis(t,mi,"EXPENSE")) continue;
+    if((t.categoryId||null)===categoryId) s+=t.amount;
+  }
+  return s;
+}
+// Top-N categorias por gasto somado num período de `months` meses terminando em `mi`.
+function topCategoriesInPeriod(mi, months, n){
+  const totals=new Map();
+  for(let k=months-1;k>=0;k--){
+    for(const r of totalsByCategory(mi-k,"EXPENSE")) totals.set(r.id, (totals.get(r.id)||0)+r.total);
+  }
+  const out=[];
+  for(const [id,total] of totals){
+    const c=id?catById(id):null;
+    out.push({ id:id||null, name:c?c.name:NO_CAT.name, icon:c?c.icon:NO_CAT.icon, total });
+  }
+  out.sort((a,b)=> b.total-a.total || a.name.localeCompare(b.name,"pt-BR"));
+  return out.slice(0,n);
+}
+// Fatias do mês: Top 5 categorias + "Outros" (evita pizza poluída com muitos segmentos pequenos).
+function categoryPieData(mi){
+  const rows=totalsByCategory(mi,"EXPENSE"); // já vem ordenado do maior pro menor
+  const total=rows.reduce((s,r)=>s+r.total,0);
+  if(rows.length<=5) return { rows, total };
+  const top=rows.slice(0,5);
+  const outros=rows.slice(5).reduce((s,r)=>s+r.total,0);
+  top.push({ id:"__other__", name:"Outros", icon:"📦", total:outros });
+  return { rows:top, total };
+}
+
+// Paleta categórica (só para a pizza — as demais análises usam uma cor só, ver CLAUDE.md).
+// Validada com scripts/validate_palette.js do guia de dataviz: ≥3:1 sobre as 3 superfícies
+// do app (clara #f5f5f5, escura #121212, AMOLED #000000), separação CVD ok entre adjacentes.
+const PIE_COLORS_LIGHT=["#2a78d6","#eb6834","#1baf7a","#eda100","#e87ba4","#008300"];
+const PIE_COLORS_DARK =["#3987e5","#d95926","#199e70","#c98500","#d55181","#008300"];
+function pieColor(i){
+  const dark = !document.body.classList.contains("light");
+  return (dark?PIE_COLORS_DARK:PIE_COLORS_LIGHT)[i % 6];
+}
+
+// Gera um <svg> de linha simples e responsivo (viewBox fixo + escala uniforme via
+// width/height + CSS, sem grade), na mesma família visual do comparativo de 6 meses.
+function buildLineSvg(values, opts){
+  opts = opts || {};
+  const w=300, h=100, pad=10;
+  const n=values.length;
+  if(!n) return "";
+  let min=Math.min(0,...values), max=Math.max(0,...values);
+  if(min===max){ min-=1; max+=1; }
+  const xOf=(i)=> n>1 ? pad+i*(w-2*pad)/(n-1) : w/2;
+  const yOf=(v)=> h-pad-((v-min)/(max-min))*(h-2*pad);
+  let svg='<svg class="linesvg" viewBox="0 0 '+w+' '+h+'" width="'+w+'" height="'+h+'">';
+  if(min<0 && max>0){
+    const zy=yOf(0).toFixed(1);
+    svg+='<line class="linezero" x1="'+pad+'" y1="'+zy+'" x2="'+(w-pad)+'" y2="'+zy+'"/>';
+  }
+  const d=values.map((v,i)=>(i===0?"M":"L")+xOf(i).toFixed(1)+","+yOf(v).toFixed(1)).join(" ");
+  svg+='<path class="lineline" d="'+d+'" style="stroke:'+(opts.color||"var(--accent)")+'"/>';
+  values.forEach((v,i)=>{
+    const color=opts.colorOf?opts.colorOf(v,i):(opts.color||"var(--accent)");
+    const title=opts.titleOf?opts.titleOf(v,i):money(v);
+    svg+='<circle class="linedot" cx="'+xOf(i).toFixed(1)+'" cy="'+yOf(v).toFixed(1)+'" r="4" fill="'+color+'"><title>'+title+'</title></circle>';
+  });
+  svg+='</svg>';
+  return svg;
+}
+
+function renderDashboard(){
+  const mi=analysisMonth;
+  renderDashSummary(mi);
+  renderDashPie(mi);
+  renderDashExpenseTrend(mi);
+  renderDashTopExpenses(mi);
+  renderDashBalanceTrend(mi);
+  renderDashCategoryEvolution(mi);
+}
+
+// Resumo do mês em foco — mesma regra e mesmas funções do card da tela principal.
+function renderDashSummary(mi){
+  const inc=monthTotal(mi,"INCOME"), exp=monthTotal(mi,"EXPENSE"), bal=inc-exp;
+  document.getElementById("dashSumIn").textContent=money(inc);
+  document.getElementById("dashSumOut").textContent=money(exp);
+  const balEl=document.getElementById("dashSumBal");
+  balEl.textContent=money(bal); balEl.className=bal>=0?"green":"red";
+}
+
+// 1) Gastos por categoria — pizza (única exceção documentada à regra "sem pizza/rosca").
+function renderDashPie(mi){
+  const {rows, total}=categoryPieData(mi);
+  document.getElementById("dashPieTotal").textContent=money(total);
+  const wrap=document.getElementById("dashPieWrap");
+  const list=document.getElementById("dashPieList");
+  wrap.innerHTML=""; list.innerHTML="";
+  if(!rows.length || total<=0){
+    wrap.innerHTML='<div class="empty">Nenhum gasto neste mês.</div>';
+    return;
+  }
+  const cx=50, cy=50, r=45;
+  let svg='<svg class="pie-svg" viewBox="0 0 100 100" width="100" height="100">';
+  if(rows.length===1){
+    svg+='<circle data-i="0" cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="'+pieColor(0)+'"><title>'+rows[0].name+": "+money(rows[0].total)+'</title></circle>';
+  } else {
+    let ang=0;
+    rows.forEach((r0,i)=>{
+      const frac=r0.total/total;
+      const start=ang, end=ang+frac*360; ang=end;
+      const toXY=(deg)=>{ const rad=(deg-90)*Math.PI/180; return [cx+r*Math.cos(rad), cy+r*Math.sin(rad)]; };
+      const [sx,sy]=toXY(start), [ex,ey]=toXY(end);
+      const large=(end-start)>180?1:0;
+      svg+='<path data-i="'+i+'" fill="'+pieColor(i)+'" d="M '+cx+' '+cy+' L '+sx.toFixed(2)+' '+sy.toFixed(2)+' A '+r+' '+r+' 0 '+large+' 1 '+ex.toFixed(2)+' '+ey.toFixed(2)+' Z"><title>'+r0.name+": "+money(r0.total)+'</title></path>';
+    });
+  }
+  svg+='</svg>';
+  wrap.innerHTML='<div class="pie-wrap">'+svg+'</div>';
+  const svgEl=wrap.querySelector(".pie-svg");
+
+  rows.forEach((r0,i)=>{
+    const pct = total>0 ? r0.total/total*100 : 0;
+    const row=document.createElement("div"); row.className="anrow tap";
+    const top=document.createElement("div"); top.className="top";
+    const dot=document.createElement("span"); dot.className="dot"; dot.style.background=pieColor(i);
+    const nm=document.createElement("span"); nm.className="nm"; nm.textContent=(r0.icon?r0.icon+" ":"")+r0.name;
+    const vl=document.createElement("span"); vl.className="vl"; vl.textContent=money(r0.total);
+    const pc=document.createElement("span"); pc.className="pc"; pc.textContent=pct.toFixed(1).replace(".",",")+"%";
+    top.appendChild(dot); top.appendChild(nm); top.appendChild(vl); top.appendChild(pc);
+    row.appendChild(top);
+    // Toque na categoria (linha ou fatia) realça a fatia correspondente — mesmos dados, sem recálculo.
+    const highlight=()=>{
+      svgEl.querySelectorAll("[data-i]").forEach(m=> m.classList.toggle("dim", m.dataset.i!==String(i)));
+    };
+    row.onclick=highlight;
+    const mark=svgEl.querySelector('[data-i="'+i+'"]');
+    if(mark) mark.onclick=highlight;
+    list.appendChild(row);
+  });
+}
+
+// 2) Evolução dos gastos — linha, período 3M/6M/12M (padrão 6M).
+function renderDashExpenseTrend(mi){
+  setSeg("dashExpPeriod", String(dashExpPeriod));
+  const n=dashExpPeriod;
+  const serie=[]; for(let k=n-1;k>=0;k--) serie.push(mi-k);
+  const values=serie.map(m=>monthTotal(m,"EXPENSE"));
+  const chart=document.getElementById("dashExpChart");
+  const lbls=document.getElementById("dashExpLbls");
+  chart.innerHTML=""; lbls.innerHTML="";
+  if(!values.some(v=>v>0)){
+    chart.innerHTML='<div class="empty">Ainda não há dados suficientes para mostrar a evolução.</div>';
+    return;
+  }
+  chart.innerHTML=buildLineSvg(values, { color:"var(--expense)", titleOf:(v,i)=>monthLabel(serie[i])+": "+money(v) });
+  for(const m of serie){ const sp=document.createElement("span"); sp.textContent=shortMonth(m); lbls.appendChild(sp); }
+}
+
+// 3) Maiores gastos do mês — transações individuais, maior → menor, sem somar por nome.
+function renderDashTopExpenses(mi){
+  const rows=expensesForMonth(mi).slice().sort((a,b)=> b.amount-a.amount || a.name.localeCompare(b.name,"pt-BR")).slice(0,5);
+  const list=document.getElementById("dashTopList");
+  list.innerHTML="";
+  if(!rows.length){
+    list.innerHTML='<div class="empty">Nenhum gasto neste mês.</div>';
+    return;
+  }
+  const max=rows[0].amount;
+  for(const t of rows){
+    const c=catById(t.categoryId);
+    const pct = max>0 ? t.amount/max*100 : 0;
+    const row=document.createElement("div"); row.className="anrow";
+    const top=document.createElement("div"); top.className="top";
+    const ic=document.createElement("span"); ic.className="ic"; ic.textContent=c?c.icon:"💸";
+    const nm=document.createElement("span"); nm.className="nm"; nm.textContent=t.name;
+    const vl=document.createElement("span"); vl.className="vl"; vl.textContent=money(t.amount);
+    top.appendChild(ic); top.appendChild(nm); top.appendChild(vl);
+    const track=document.createElement("div"); track.className="antrack";
+    const fill=document.createElement("div"); fill.className="anfill"; fill.style.width=pct+"%";
+    track.appendChild(fill);
+    row.appendChild(top); row.appendChild(track);
+    list.appendChild(row);
+  }
+}
+
+// 4) Evolução do saldo — mesma regra da tela principal (monthBalance), 6 meses.
+// Polaridade não fica só na cor: cada ponto tem valor com sinal no title, e a cor
+// (verde/vermelho) segue a mesma convenção de --income/--expense já usada no app.
+function renderDashBalanceTrend(mi){
+  const n=6;
+  const serie=[]; for(let k=n-1;k>=0;k--) serie.push(mi-k);
+  const values=serie.map(m=>monthBalance(m));
+  const chart=document.getElementById("dashBalChart");
+  const lbls=document.getElementById("dashBalLbls");
+  chart.innerHTML=buildLineSvg(values, {
+    color:"var(--muted)",
+    colorOf:(v)=> v>=0 ? "var(--income)" : "var(--expense)",
+    titleOf:(v,i)=> monthLabel(serie[i])+": "+(v>=0?"+ ":"- ")+money(Math.abs(v))
+  });
+  lbls.innerHTML="";
+  for(const m of serie){ const sp=document.createElement("span"); sp.textContent=shortMonth(m); lbls.appendChild(sp); }
+}
+
+// 5) Evolução das categorias — seletor (Top 5 do período) + linha da categoria escolhida
+// + ranking compacto das 5, pra enxergar de relance quem está subindo ou caindo.
+function renderDashCategoryEvolution(mi){
+  const top5=topCategoriesInPeriod(mi, 6, 5);
+  const sel=document.getElementById("dashCatSelect");
+  const chart=document.getElementById("dashCatChart");
+  const lbls=document.getElementById("dashCatLbls");
+  const rank=document.getElementById("dashCatRank");
+  const deltaEl=document.getElementById("dashCatDelta");
+  sel.innerHTML=""; chart.innerHTML=""; lbls.innerHTML=""; rank.innerHTML=""; deltaEl.textContent=""; deltaEl.className="andelta";
+
+  if(!top5.length){
+    sel.style.display="none";
+    chart.innerHTML='<div class="empty">Ainda não há dados suficientes para mostrar a evolução.</div>';
+    return;
+  }
+  sel.style.display="";
+  // mantém a categoria escolhida se ainda estiver entre as top 5; senão usa a mais gasta
+  if(dashSelectedCategoryId===undefined || !top5.some(c=>c.id===dashSelectedCategoryId)) dashSelectedCategoryId=top5[0].id;
+  for(const c of top5){
+    const o=document.createElement("option");
+    o.value = c.id===null ? "__none__" : c.id;
+    o.textContent=c.icon+" "+c.name;
+    if(c.id===dashSelectedCategoryId) o.selected=true;
+    sel.appendChild(o);
+  }
+
+  const n=6;
+  const serie=[]; for(let k=n-1;k>=0;k--) serie.push(mi-k);
+  const values=serie.map(m=>categoryMonthTotal(m, dashSelectedCategoryId));
+  if(values.some(v=>v>0)){
+    chart.innerHTML=buildLineSvg(values, { color:"var(--accent)", titleOf:(v,i)=>monthLabel(serie[i])+": "+money(v) });
+    for(const m of serie){ const sp=document.createElement("span"); sp.textContent=shortMonth(m); lbls.appendChild(sp); }
+    const first=values[0], last=values[values.length-1];
+    if(first>0){
+      const pct=(last-first)/first*100, subiu=pct>=0;
+      deltaEl.textContent=(subiu?"▲ ":"▼ ")+Math.abs(pct).toFixed(1).replace(".",",")+"% desde "+monthLabel(serie[0]).split(" de ")[0];
+      // em gastos, subir é ruim (mesma convenção do delta da análise por categoria)
+      deltaEl.classList.add(subiu?"up":"down");
+    } else if(last>0){
+      deltaEl.textContent="sem gasto no início do período";
+    }
+  } else {
+    chart.innerHTML='<div class="empty">Nenhum gasto nesta categoria no período.</div>';
+  }
+
+  const rankMax=top5[0].total;
+  for(const c of top5){
+    const row=document.createElement("div"); row.className="anrow";
+    const top=document.createElement("div"); top.className="top";
+    const ic=document.createElement("span"); ic.className="ic"; ic.textContent=c.icon;
+    const nm=document.createElement("span"); nm.className="nm"; nm.textContent=c.name;
+    const vl=document.createElement("span"); vl.className="vl"; vl.textContent=money(c.total);
+    top.appendChild(ic); top.appendChild(nm); top.appendChild(vl);
+    const track=document.createElement("div"); track.className="antrack";
+    const fill=document.createElement("div"); fill.className="anfill"; fill.style.width=(rankMax>0?c.total/rankMax*100:0)+"%";
+    track.appendChild(fill);
+    row.appendChild(top); row.appendChild(track);
+    rank.appendChild(row);
   }
 }
 
@@ -1409,6 +1744,8 @@ function bind(){
   document.querySelectorAll("#anType button").forEach(b=> b.onclick=()=>{ analysisType=b.dataset.v; renderAnalysis(); });
   document.querySelectorAll("#anView button").forEach(b=> b.onclick=()=>{ analysisView=b.dataset.v; renderAnalysis(); });
   document.getElementById("anClose").onclick=()=>hideOverlay("analysisOverlay");
+  document.querySelectorAll("#dashExpPeriod button").forEach(b=> b.onclick=()=>{ dashExpPeriod=parseInt(b.dataset.v); renderDashExpenseTrend(analysisMonth); });
+  document.getElementById("dashCatSelect").onchange=(e)=>{ dashSelectedCategoryId = e.target.value==="__none__" ? null : e.target.value; renderDashCategoryEvolution(analysisMonth); };
 
   document.querySelectorAll("#fType button").forEach(b=> b.onclick=()=>setSeg("fType",b.dataset.v));
   document.querySelectorAll("#fRec button").forEach(b=> b.onclick=()=>{

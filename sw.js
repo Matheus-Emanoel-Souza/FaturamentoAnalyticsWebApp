@@ -1,6 +1,6 @@
 // Service worker simples: cache para funcionar offline.
-// v4: gastos fixos no dashboard de análise.
-const CACHE = "faturamento-v4";
+// v5: Dashboard expandido (pizza de categorias, evolução de gastos/saldo/categorias, maiores gastos).
+const CACHE = "faturamento-v5";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", (e) => {
