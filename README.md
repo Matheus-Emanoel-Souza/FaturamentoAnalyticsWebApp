@@ -19,6 +19,93 @@ Depois de instalado, abre em tela cheia e funciona **offline**.
 
 ---
 
+## 📸 Screenshots
+
+*(dados fictícios, gerados só para ilustrar as telas)*
+
+<table>
+<tr>
+<td width="33%">
+
+**Tela principal**
+Resumo do mês — entradas, saídas, saldo — e a lista de lançamentos com status de pago/pendente.
+
+<img src="screenshots/01-tela-principal.png" width="100%">
+
+</td>
+<td width="33%">
+
+**Pago / pendente**
+Cada lançamento pode ser marcado como pago ou a pagar, pra acompanhar o que ainda falta no mês.
+
+<img src="screenshots/03-pago-pendente.png" width="100%">
+
+</td>
+<td width="33%">
+
+**Nova transação**
+Categoria, flags e recorrência (única, fixa ou parcelada) na hora de lançar.
+
+<img src="screenshots/02-nova-transacao.png" width="100%">
+
+</td>
+</tr>
+<tr>
+<td width="33%">
+
+**Dashboard — por categoria**
+Pizza dos gastos do mês, sempre Top 5 + "Outros".
+
+<img src="screenshots/04-dashboard-pizza.png" width="100%">
+
+</td>
+<td width="33%">
+
+**Dashboard — evolução dos gastos**
+Total de saídas mês a mês, com período de 3, 6 ou 12 meses.
+
+<img src="screenshots/05-evolucao-gastos.png" width="100%">
+
+</td>
+<td width="33%">
+
+**Dashboard — evolução das categorias**
+Uma categoria por vez ao longo do tempo, com variação percentual.
+
+<img src="screenshots/06-evolucao-categorias.png" width="100%">
+
+</td>
+</tr>
+<tr>
+<td width="33%">
+
+**Análise por categoria**
+Comparativo dos últimos 6 meses e ranking com valor, percentual e barra.
+
+<img src="screenshots/07-analise-por-categoria.png" width="100%">
+
+</td>
+<td width="33%">
+
+**Gastos fixos**
+Total mensal, já pago x pendente e detalhamento de cada recorrência fixa.
+
+<img src="screenshots/08-gastos-fixos.png" width="100%">
+
+</td>
+<td width="33%">
+
+**Categorias e flags**
+Gerenciar categorias e flags — criar, editar e excluir sem apagar lançamentos.
+
+<img src="screenshots/09-categorias-flags.png" width="100%">
+
+</td>
+</tr>
+</table>
+
+---
+
 ## Sobre este fork
 
 Achei o [projeto original do @lucasmarx10](https://github.com/lucasmarx10/FaturamentoWebApp) muito interessante: um app de finanças pessoais completo em **um único arquivo HTML**, sem framework, sem build, sem dependência nenhuma. Simples de entender e de manter.
